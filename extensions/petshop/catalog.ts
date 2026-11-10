@@ -105,11 +105,40 @@ export const CAT_BREEDS: Term[] = [
   { key: 'turkish-angora', en: 'Turkish Angora', ptBR: 'Angorá Turco' },
 ];
 
+/**
+ * The laboratories that make most of the dog and cat vaccines sold in Brazil. The shop adds any other
+ * right from the vaccine form.
+ */
+export const LABORATORIES: Term[] = [
+  { key: 'zoetis', en: 'Zoetis', ptBR: 'Zoetis' },
+  { key: 'msd', en: 'MSD Animal Health', ptBR: 'MSD Saúde Animal' },
+  { key: 'boehringer-ingelheim', en: 'Boehringer Ingelheim', ptBR: 'Boehringer Ingelheim' },
+  { key: 'elanco', en: 'Elanco', ptBR: 'Elanco' },
+  { key: 'ceva', en: 'Ceva', ptBR: 'Ceva' },
+  { key: 'virbac', en: 'Virbac', ptBR: 'Virbac' },
+  { key: 'ourofino', en: 'Ourofino', ptBR: 'Ourofino' },
+  { key: 'vetoquinol', en: 'Vetoquinol', ptBR: 'Vetoquinol' },
+];
+
+/**
+ * The states of a vaccine batch. The automations compare these KEYS — never rename them. A batch is
+ * born available and becomes expired the day after its expiry date.
+ */
+export const BATCH_AVAILABLE = 'available';
+export const BATCH_EXPIRED = 'expired';
+
+export const BATCH_STATUSES: Term[] = [
+  { key: BATCH_AVAILABLE, en: 'Available', ptBR: 'Disponível' },
+  { key: BATCH_EXPIRED, en: 'Expired', ptBR: 'Vencido' },
+];
+
 /** Message keys of each option-list term, grouped so the plugin and the bundles derive them the same way. */
 export const TERM_GROUPS: { prefix: string; terms: Term[] }[] = [
   { prefix: 'species', terms: SPECIES },
   { prefix: 'size', terms: SIZES },
   { prefix: 'sex', terms: SEXES },
+  { prefix: 'laboratory', terms: LABORATORIES },
+  { prefix: 'batch-status', terms: BATCH_STATUSES },
 ];
 
 export const termMessageKey = (prefix: string, key: string): string => `${prefix}.${key}`;

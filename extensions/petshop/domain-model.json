@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "intent": "Create a Pet Shop Management System to manage customers and their pets. Each customer may have multiple pets, with information such as name, species, breed, sex, age, size, and relevant notes. The system should provide a preloaded catalog of the most common dog and cat breeds, while also allowing users to add new breeds. The breed is a separate entity with a type (the species: dog, cat, etc.); a pet has a single breed field, filtered by its species.",
+  "intent": "Create a Pet Shop Management System to manage customers and their pets. Each customer may have multiple pets, with information such as name, species, breed, sex, age, size, and relevant notes. The system should provide a preloaded catalog of the most common dog and cat breeds, while also allowing users to add new breeds. The breed is a separate entity with a type (the species: dog, cat, etc.); a pet has a single breed field, filtered by its species. Vaccines: the shop registers the vaccines it uses (name, laboratory, diseases covered) and each batch it buys (lot number unique per vaccine, manufacture and expiry dates, doses bought); a batch past its expiry date is expired and can no longer be chosen. Each vaccination of a pet records the vaccine, an available batch, the date applied, the next dose date and who applied it; staff and the pet's owner are alerted a configurable number of days (default 2) before the next dose.",
   "target": "extension",
   "extensionId": "br.com.microteia.petshop",
   "entities": [
@@ -171,7 +171,7 @@
         },
         {
           "kind": "documents",
-          "because": "A pet carries files of its own: vaccination cards, vet reports, photos."
+          "because": "A pet carries files of its own: vet reports, photos, the paper vaccination card."
         },
         {
           "kind": "tags",
@@ -230,6 +230,252 @@
       "kind": "lookup",
       "collection": "pet_petshopPetSizes",
       "fields": []
+    },
+    {
+      "name": "Vaccine",
+      "kind": "entity",
+      "collection": "pet_petshopVaccines",
+      "description": "A vaccine product the shop applies, e.g. a rabies or a polyvalent vaccine, from one laboratory.",
+      "titleField": "name",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Name",
+          "semanticType": "scalar",
+          "type": "text",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "key": "laboratory",
+          "label": "Laboratory",
+          "semanticType": "scalar",
+          "type": "select",
+          "lookup": "pet_petshopLaboratories",
+          "required": true,
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "diseases",
+          "label": "Protects against",
+          "semanticType": "scalar",
+          "type": "text",
+          "searchable": true,
+          "showInList": true
+        },
+        {
+          "key": "notes",
+          "label": "Notes",
+          "semanticType": "scalar",
+          "type": "textarea"
+        }
+      ],
+      "keys": [
+        {
+          "name": "name-laboratory",
+          "kind": "unique",
+          "fields": [
+            "laboratory",
+            "name"
+          ],
+          "normalize": {
+            "caseInsensitive": true
+          },
+          "message": "This laboratory already has a vaccine with this name."
+        }
+      ]
+    },
+    {
+      "name": "VaccineBatch",
+      "kind": "child",
+      "collection": "pet_petshopVaccineBatches",
+      "description": "One purchased batch (lot) of a vaccine. Its lot number is unique within the vaccine, and once its expiry date has passed it is expired and no longer offered for a vaccination.",
+      "titleField": "lotNumber",
+      "fields": [
+        {
+          "key": "lotNumber",
+          "label": "Lot number",
+          "semanticType": "scalar",
+          "type": "text",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "key": "vaccine",
+          "label": "Vaccine",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Vaccine",
+          "required": true,
+          "searchable": true,
+          "filterable": true
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "semanticType": "scalar",
+          "type": "select",
+          "lookup": "pet_petshopVaccineBatchStatuses",
+          "required": true,
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "manufacturedOn",
+          "label": "Manufactured on",
+          "semanticType": "scalar",
+          "type": "date"
+        },
+        {
+          "key": "expiryDate",
+          "label": "Expiry date",
+          "semanticType": "scalar",
+          "type": "date",
+          "required": true,
+          "showInList": true
+        },
+        {
+          "key": "purchasedOn",
+          "label": "Purchased on",
+          "semanticType": "scalar",
+          "type": "date"
+        },
+        {
+          "key": "dosesPurchased",
+          "label": "Doses purchased",
+          "semanticType": "scalar",
+          "type": "number"
+        },
+        {
+          "key": "dosesApplied",
+          "label": "Doses applied",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "children",
+          "aggregation": {
+            "from": "Vaccination",
+            "via": "batch",
+            "op": "count"
+          }
+        },
+        {
+          "key": "dosesLeft",
+          "label": "Doses left",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "self",
+          "expression": "if(isEmpty(dosesPurchased), null, dosesPurchased - coalesce(dosesApplied, 0))",
+          "showInList": true
+        }
+      ],
+      "keys": [
+        {
+          "name": "lot",
+          "kind": "unique",
+          "fields": [
+            "lotNumber"
+          ],
+          "scope": "parent",
+          "normalize": {
+            "caseInsensitive": true
+          },
+          "message": "This vaccine already has a batch with this lot number."
+        }
+      ]
+    },
+    {
+      "name": "Vaccination",
+      "kind": "child",
+      "collection": "pet_petshopVaccinations",
+      "description": "One dose of a vaccine applied to a pet, from an available batch, with the date of the next dose and when to remind about it. The reminder itself is a workflow on the kernel clock (pet-vaccine-reminder in vaccines.ts): a vaccination has no states, so the model's behavior block cannot describe it. The batch is chosen through an options filter (only available batches of the chosen vaccine), a form rule the model cannot express either.",
+      "titleField": "vaccine",
+      "fields": [
+        {
+          "key": "vaccine",
+          "label": "Vaccine",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Vaccine",
+          "required": true,
+          "searchable": true,
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "pet",
+          "label": "Pet",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Pet",
+          "required": true,
+          "searchable": true,
+          "filterable": true
+        },
+        {
+          "key": "batch",
+          "label": "Batch",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "VaccineBatch",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "key": "appliedOn",
+          "label": "Applied on",
+          "semanticType": "scalar",
+          "type": "date",
+          "required": true,
+          "showInList": true
+        },
+        {
+          "key": "nextDoseOn",
+          "label": "Next dose on",
+          "semanticType": "scalar",
+          "type": "date",
+          "showInList": true
+        },
+        {
+          "key": "remindDaysBefore",
+          "label": "Remind (days before)",
+          "semanticType": "scalar",
+          "type": "number"
+        },
+        {
+          "key": "remindOn",
+          "label": "Reminder on",
+          "semanticType": "derived",
+          "type": "date",
+          "derivedFrom": "self",
+          "expression": "if(isEmpty(nextDoseOn), null, addDays(nextDoseOn, 0 - coalesce(remindDaysBefore, 2)))"
+        },
+        {
+          "key": "veterinarian",
+          "label": "Applied by",
+          "semanticType": "scalar",
+          "type": "text",
+          "searchable": true
+        },
+        {
+          "key": "notes",
+          "label": "Notes",
+          "semanticType": "scalar",
+          "type": "textarea"
+        }
+      ]
+    },
+    {
+      "name": "Laboratory",
+      "kind": "lookup",
+      "collection": "pet_petshopLaboratories",
+      "fields": []
+    },
+    {
+      "name": "VaccineBatchStatus",
+      "kind": "lookup",
+      "collection": "pet_petshopVaccineBatchStatuses",
+      "fields": []
     }
   ],
   "relationships": [
@@ -277,6 +523,64 @@
       "storage": "lookup",
       "ownership": "association",
       "required": true
+    },
+    {
+      "name": "vaccine-batches",
+      "sourceEntity": "VaccineBatch",
+      "targetEntity": "Vaccine",
+      "sourceField": "vaccine",
+      "type": "many-to-one",
+      "storage": "child",
+      "ownership": "composition",
+      "required": true,
+      "onDelete": "orphan"
+    },
+    {
+      "name": "pet-vaccinations",
+      "sourceEntity": "Vaccination",
+      "targetEntity": "Pet",
+      "sourceField": "pet",
+      "type": "many-to-one",
+      "storage": "child",
+      "ownership": "composition",
+      "required": true,
+      "onDelete": "orphan"
+    },
+    {
+      "sourceEntity": "Vaccination",
+      "targetEntity": "Vaccine",
+      "sourceField": "vaccine",
+      "type": "many-to-one",
+      "storage": "reference",
+      "ownership": "association",
+      "required": true
+    },
+    {
+      "sourceEntity": "Vaccination",
+      "targetEntity": "VaccineBatch",
+      "sourceField": "batch",
+      "type": "many-to-one",
+      "storage": "reference",
+      "ownership": "association",
+      "required": true
+    },
+    {
+      "sourceEntity": "Vaccine",
+      "targetEntity": "Laboratory",
+      "sourceField": "laboratory",
+      "type": "many-to-one",
+      "storage": "lookup",
+      "ownership": "association",
+      "required": true
+    },
+    {
+      "sourceEntity": "VaccineBatch",
+      "targetEntity": "VaccineBatchStatus",
+      "sourceField": "status",
+      "type": "many-to-one",
+      "storage": "lookup",
+      "ownership": "association",
+      "required": true
     }
   ],
   "behavior": {
@@ -293,6 +597,132 @@
         "entity": "Breed",
         "key": "species-name",
         "message": "This species already has a breed with this name."
+      },
+      {
+        "scope": "field",
+        "entity": "VaccineBatch",
+        "field": "expiryDate",
+        "expression": "isEmpty(manufacturedOn) or dateDiff(expiryDate, manufacturedOn, \"days\") > 0",
+        "message": "The expiry date must be after the manufacture date."
+      },
+      {
+        "scope": "field",
+        "entity": "VaccineBatch",
+        "field": "dosesPurchased",
+        "expression": "isEmpty(dosesPurchased) or dosesPurchased > 0",
+        "message": "Enter a number of doses greater than zero."
+      },
+      {
+        "scope": "collection",
+        "entity": "VaccineBatch",
+        "key": "lot",
+        "message": "This vaccine already has a batch with this lot number."
+      },
+      {
+        "scope": "collection",
+        "entity": "Vaccine",
+        "key": "name-laboratory",
+        "message": "This laboratory already has a vaccine with this name."
+      },
+      {
+        "scope": "field",
+        "entity": "Vaccination",
+        "field": "appliedOn",
+        "expression": "dateDiff(appliedOn, today(), \"days\") <= 0",
+        "message": "The date applied cannot be in the future."
+      },
+      {
+        "scope": "field",
+        "entity": "Vaccination",
+        "field": "nextDoseOn",
+        "expression": "isEmpty(nextDoseOn) or dateDiff(nextDoseOn, appliedOn, \"days\") > 0",
+        "message": "The next dose must be after the date applied."
+      },
+      {
+        "scope": "field",
+        "entity": "Vaccination",
+        "field": "remindDaysBefore",
+        "expression": "isEmpty(remindDaysBefore) or (remindDaysBefore >= 0 and remindDaysBefore <= 60)",
+        "message": "Remind between 0 and 60 days before."
+      }
+    ],
+    "states": [
+      {
+        "entity": "VaccineBatch",
+        "field": "status",
+        "lookup": "pet_petshopVaccineBatchStatuses",
+        "options": [
+          {
+            "key": "available",
+            "label": "Available"
+          },
+          {
+            "key": "expired",
+            "label": "Expired"
+          }
+        ],
+        "initial": "available"
+      }
+    ],
+    "transitions": [
+      {
+        "name": "expire-when-date-passes",
+        "entity": "VaccineBatch",
+        "from": "available",
+        "to": "expired",
+        "trigger": {
+          "kind": "date-reached",
+          "field": "expiryDate",
+          "offset": "+1d",
+          "at": "00:05"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"expired\""
+          }
+        ]
+      },
+      {
+        "name": "expire-on-save",
+        "entity": "VaccineBatch",
+        "from": "available",
+        "to": "expired",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "dateDiff(expiryDate, today(), \"days\") < 0"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"expired\""
+          }
+        ]
+      },
+      {
+        "name": "reopen-on-save",
+        "entity": "VaccineBatch",
+        "from": "expired",
+        "to": "available",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "dateDiff(expiryDate, today(), \"days\") >= 0"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"available\""
+          }
+        ]
       }
     ]
   }

@@ -8,10 +8,12 @@ import type {
 } from '@microteia/sdk';
 import { messageBundleContribution, nav } from '@microteia/sdk';
 import { CAT_BREEDS, DOG_BREEDS, SEXES, SIZES, SPECIES, SPECIES_CAT, SPECIES_DOG, termMessageKey, type Term } from './catalog';
+import { BREEDS, CUSTOMER_TAGS, CUSTOMERS, label, PET_TAGS, PETS, SIZE_LIST, SPECIES_LIST } from './collections';
 import { MESSAGES, NAMESPACE } from './messages';
+import { VACCINE_CONTRIBUTIONS, VACCINE_LOOKUPS, VACCINE_SCREENS, VACCINE_WORKFLOWS } from './vaccines';
 
 /**
- * br.com.microteia.petshop — customers and their pets.
+ * br.com.microteia.petshop — customers and their pets, and the pets' vaccines (vaccines.ts).
  *
  * The model lives beside this file in domain-model.json; read it before changing a field. Two decisions
  * there are worth knowing:
@@ -25,18 +27,17 @@ import { MESSAGES, NAMESPACE } from './messages';
  * The .json that "microteia-plugin build" produces from this file is what the platform installs.
  */
 
-/** A message reference, resolved against the bundles in messages.ts. */
-const label = (key: string): string => `@${NAMESPACE}/${key}`;
-
 // ─── Collections ────────────────────────────────────────────────────────────
 
-export const CUSTOMERS = 'pet_petshopCustomers';
-export const PETS = 'pet_petshopPets';
-export const BREEDS = 'pet_petshopBreeds';
-export const SPECIES_LIST = 'pet_petshopSpecies';
-export const SIZE_LIST = 'pet_petshopPetSizes';
-export const CUSTOMER_TAGS = 'pet_petshopCustomerTags';
-export const PET_TAGS = 'pet_petshopPetTags';
+export {
+  BREEDS,
+  CUSTOMER_TAGS,
+  CUSTOMERS,
+  PET_TAGS,
+  PETS,
+  SIZE_LIST,
+  SPECIES_LIST,
+} from './collections';
 
 // ─── Expressions ────────────────────────────────────────────────────────────
 
@@ -349,7 +350,7 @@ export const PETS_NAV = nav({ screen: PETS, label: label('pet.plural'), icon: 'h
 export const petshopPlugin: AuthoredPlugin = {
   manifest: {
     id: NAMESPACE,
-    version: '3.4.0',
+    version: '3.5.0',
     kernel: '^2.106.0',
     name: label('extension.name'),
     description: label('extension.description'),
@@ -361,13 +362,14 @@ export const petshopPlugin: AuthoredPlugin = {
       ...MESSAGES.map((bundle) => messageBundleContribution(bundle)),
       // Every pet of every customer, between Customers (20) and Breeds (30).
       PETS_NAV,
+      ...VACCINE_CONTRIBUTIONS,
     ],
   },
   summary: label('extension.summary'),
-  screens: [CUSTOMER_SCREEN, PET_SCREEN, BREED_SCREEN],
-  lookups: LOOKUPS,
+  screens: [CUSTOMER_SCREEN, PET_SCREEN, BREED_SCREEN, ...VACCINE_SCREENS],
+  lookups: [...LOOKUPS, ...VACCINE_LOOKUPS],
   tagLists: TAG_LISTS,
-  workflows: [],
+  workflows: VACCINE_WORKFLOWS,
 };
 
 export default petshopPlugin;

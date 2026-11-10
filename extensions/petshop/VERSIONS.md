@@ -12,6 +12,14 @@ Each entry matches `manifest.version` in `plugin.ts`. The newest one goes on top
 - What a person will notice, in one plain sentence.
 -->
 
+#### [3.5.0] — 2026-11-10
+
+- A new Vaccines screen in the menu lists the vaccines the shop uses, each with its laboratory and what it protects against; the common laboratories are already on the list.
+- Each vaccine has a Batches tab for every lot you buy: lot number, manufacture and expiry dates, and doses purchased, applied and left. The same lot number cannot be registered twice for one vaccine.
+- A batch is marked Expired the day after its expiry date, and from then on it is no longer offered when registering a vaccination.
+- Each pet has a Vaccinations tab: choose the vaccine, then one of its available batches, and record the date applied, who applied it and the date of the next dose.
+- Before the next dose — 2 days by default, adjustable on each vaccination — the staff get an alert in the app and the owner gets an e-mail. No reminder is sent if the pet already took a later dose of that vaccine.
+
 #### [3.4.0] — 2026-11-10
 
 - Each pet's card in the Pets list shows the name of its customer.

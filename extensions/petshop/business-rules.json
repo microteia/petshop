@@ -22,6 +22,40 @@
         "pet_petshopCustomers": "br.com.microteia.petshop:pet_petshopCustomers",
         "pet_petshopPets": "br.com.microteia.petshop:pet_petshopPets"
       }
+    },
+    {
+      "ruleId": "petshop-pet-vaccines",
+      "statement": "I would like to create a controller of the Pet's vacine and alert two days (configurable) before next vacine. I have to asing a existent valid vacine. For each vacine I buy, I have to control the validity. Each vacine have a unique code, laboratory etc. If you have more idea to controller Pet's vacine, I agree to implement, but don't turn on the this extension complex.",
+      "fingerprint": "209c8536",
+      "screens": [
+        "pet_petshopBreeds",
+        "pet_petshopCustomers",
+        "pet_petshopPets",
+        "pet_petshopVaccinations",
+        "pet_petshopVaccineBatches",
+        "pet_petshopVaccines"
+      ],
+      "lists": [
+        "pet_petshopLaboratories",
+        "pet_petshopPetSizes",
+        "pet_petshopSpecies",
+        "pet_petshopVaccineBatchStatuses"
+      ],
+      "actions": [],
+      "transitions": [
+        "expire-on-save",
+        "expire-when-date-passes",
+        "reopen-on-save"
+      ],
+      "permissions": [],
+      "screenSourceIds": {
+        "pet_petshopBreeds": "br.com.microteia.petshop:pet_petshopBreeds",
+        "pet_petshopCustomers": "br.com.microteia.petshop:pet_petshopCustomers",
+        "pet_petshopPets": "br.com.microteia.petshop:pet_petshopPets",
+        "pet_petshopVaccinations": "br.com.microteia.petshop:pet_petshopVaccinations",
+        "pet_petshopVaccineBatches": "br.com.microteia.petshop:pet_petshopVaccineBatches",
+        "pet_petshopVaccines": "br.com.microteia.petshop:pet_petshopVaccines"
+      }
     }
   ]
 }
