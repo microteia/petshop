@@ -191,8 +191,14 @@ const BREED_SCREEN: ScreenModuleTemplate = {
 export const BREED_BY_SPECIES = { where: [{ path: 'species', op: 'eq' as const, value: { field: 'species' } }] };
 
 const IDENTIFICATION = label('pet.section.identification');
+
+/** A photo of the animal: the common image formats, and small enough to load quickly on every card. */
+export const PET_PHOTO_FILE = { extensions: ['jpg', 'jpeg', 'png', 'webp'], maxSizeMb: 5 };
 const AGE = label('pet.section.age');
 const NOTES = label('pet.section.notes');
+// Last, in a section of its own: the picture is already in the record's header, and a tall upload
+// control in the middle of Identification would break its two-column pairs.
+const PHOTO = label('pet.section.photo');
 
 const PET_FIELDS: TemplateField[] = [
   { key: 'name', label: label('pet.field.name'), type: 'text', required: true, order: 0, section: IDENTIFICATION, searchable: true },
@@ -267,6 +273,16 @@ const PET_FIELDS: TemplateField[] = [
   { key: 'ageYears', label: label('pet.field.age-years'), type: 'number', required: false, order: 7, section: AGE, logic: { derive: AGE_YEARS } },
   { key: 'ageMonths', label: label('pet.field.age-months'), type: 'number', required: false, order: 8, section: AGE, logic: { derive: AGE_MONTHS } },
   { key: 'notes', label: label('pet.field.notes'), type: 'textarea', required: false, order: 9, section: NOTES },
+  {
+    key: 'photo',
+    label: label('pet.field.photo'),
+    type: 'file',
+    required: false,
+    order: 10,
+    section: PHOTO,
+    // Images only: the field is the card's avatar (`imageFieldKey`), and anything else would draw nothing.
+    file: PET_PHOTO_FILE,
+  },
 ];
 
 /** The pet card: who it is, its breed, and its size and sex as badges. The values read clearly without labels. */
@@ -300,6 +316,8 @@ const PET_SCREEN: ScreenModuleTemplate = {
   icon: 'heart',
   titleFieldKey: 'name',
   subtitleFieldKey: 'species',
+  // The card's avatar is the pet's photo; without one, the screen icon.
+  imageFieldKey: 'photo',
   fields: PET_FIELDS,
   cardTemplate: PET_CARD,
   // The reasons are in domain-model.json (entity.tabs): visit observations, vaccination cards, labels.
@@ -325,7 +343,7 @@ export const PETS_NAV = nav({ screen: PETS, label: label('pet.plural'), icon: 'h
 export const petshopPlugin: AuthoredPlugin = {
   manifest: {
     id: NAMESPACE,
-    version: '3.2.0',
+    version: '3.3.1',
     kernel: '^2.106.0',
     name: label('extension.name'),
     description: label('extension.description'),

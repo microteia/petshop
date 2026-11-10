@@ -11,8 +11,9 @@ import { matchesOptionsFilter, resolveOptionsFilter } from '../node_modules/@mic
 import MODEL from './domain-model.json';
 import { CAT_BREEDS, DOG_BREEDS, SEXES, SIZES, SPECIES, SPECIES_CAT, SPECIES_DOG } from './catalog';
 import { MESSAGES, NAMESPACE } from './messages';
-import { AGE_MONTHS, AGE_YEARS, BIRTH_DATE_RULE, BREED_BY_SPECIES, BREED_SEEDS, BREEDS, CUSTOMER_TAGS, CUSTOMERS, PET_TAGS, EMAIL_RULE, PET_CARD, PETS, PETS_NAV, petshopPlugin } from './plugin';
+import { AGE_MONTHS, AGE_YEARS, BIRTH_DATE_RULE, BREED_BY_SPECIES, BREED_SEEDS, BREEDS, CUSTOMER_TAGS, CUSTOMERS, PET_TAGS, EMAIL_RULE, PET_CARD, PET_PHOTO_FILE, PETS, PETS_NAV, petshopPlugin } from './plugin';
 import type { CardNode } from '@microteia/sdk';
+import { fileConfigIsImageOnly } from '../node_modules/@microteia/sdk/lib/domain/schema/fieldRules.js';
 
 /**
  * The same validation the platform runs on install, plus the rules that can be wrong without the
@@ -43,6 +44,24 @@ describe('br.com.microteia.petshop', () => {
     expect(pets?.parentRelation).toBe('related');
     expect(pets?.hideRecordsFromCommandPalette).not.toBe(true);
     expect(pets?.fields.find((field) => field.key === 'customer')?.required).toBe(true);
+  });
+
+  it('a pet has an optional photo, images only, shown as the avatar of its card', () => {
+    const pets = (petshopPlugin.screens ?? []).find((screen) => screen.key === PETS);
+    const photo = pets?.fields.find((field) => field.key === 'photo');
+    expect(photo).toMatchObject({ type: 'file', required: false, file: PET_PHOTO_FILE });
+    expect(fileConfigIsImageOnly(PET_PHOTO_FILE)).toBe(true);
+    expect(pets?.imageFieldKey).toBe('photo');
+    const avatar = (PET_CARD.body ?? []).flatMap((node) => (node.type === 'row' ? node.children : [node]));
+    expect(avatar.some((node) => node.type === 'avatar')).toBe(true);
+  });
+
+  it('the photo is the last field, in a section of its own, so Identification keeps its pairs', () => {
+    const fields = [...((petshopPlugin.screens ?? []).find((screen) => screen.key === PETS)?.fields ?? [])].sort((a, b) => a.order - b.order);
+    const photo = fields.at(-1)!;
+    expect(photo.key).toBe('photo');
+    expect(fields.filter((field) => field.section === photo.section).map((field) => field.key)).toEqual(['photo']);
+    expect(new Set(fields.map((field) => field.order)).size).toBe(fields.length);
   });
 
   it('the number of pets is not shown on the customer card or form', () => {
