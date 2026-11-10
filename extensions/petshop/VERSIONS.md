@@ -12,6 +12,10 @@ Each entry matches `manifest.version` in `plugin.ts`. The newest one goes on top
 - What a person will notice, in one plain sentence.
 -->
 
+#### [3.4.0] — 2026-11-10
+
+- Each pet's card in the Pets list shows the name of its customer.
+
 #### [3.3.1] — 2026-11-10
 
 - The pet's photo is uploaded in its own Photo section at the end of the form, so Identification reads in clean pairs again.

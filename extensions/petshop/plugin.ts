@@ -285,7 +285,12 @@ const PET_FIELDS: TemplateField[] = [
   },
 ];
 
-/** The pet card: who it is, its breed, and its size and sex as badges. The values read clearly without labels. */
+/**
+ * The pet card: who it is, its breed, whose pet it is, and its size and sex as badges. The values read
+ * clearly without labels. The customer is the reference itself, so the card shows the customer's current
+ * name — never a copy — and inside a customer's Pets tab, where every pet has the same owner, the
+ * platform leaves it out.
+ */
 export const PET_CARD: CardTemplate = {
   body: [
     {
@@ -296,6 +301,7 @@ export const PET_CARD: CardTemplate = {
       ],
     },
     { type: 'field', field: 'breed', variant: 'strong' },
+    { type: 'field', field: 'customer', icon: 'user', variant: 'muted' },
     {
       type: 'row',
       wrap: true,
@@ -343,7 +349,7 @@ export const PETS_NAV = nav({ screen: PETS, label: label('pet.plural'), icon: 'h
 export const petshopPlugin: AuthoredPlugin = {
   manifest: {
     id: NAMESPACE,
-    version: '3.3.1',
+    version: '3.4.0',
     kernel: '^2.106.0',
     name: label('extension.name'),
     description: label('extension.description'),

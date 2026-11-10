@@ -56,6 +56,13 @@ describe('br.com.microteia.petshop', () => {
     expect(avatar.some((node) => node.type === 'avatar')).toBe(true);
   });
 
+  it("the pet card shows its customer's name, through the reference and never a copied field", () => {
+    const nodes = (PET_CARD.body ?? []).flatMap((node) => (node.type === 'row' ? node.children : [node]));
+    expect(nodes).toContainEqual(expect.objectContaining({ type: 'field', field: 'customer' }));
+    const pets = (petshopPlugin.screens ?? []).find((screen) => screen.key === PETS);
+    expect(pets?.fields.find((field) => field.key === 'customer')).toMatchObject({ type: 'reference', refEntity: CUSTOMERS });
+  });
+
   it('the photo is the last field, in a section of its own, so Identification keeps its pairs', () => {
     const fields = [...((petshopPlugin.screens ?? []).find((screen) => screen.key === PETS)?.fields ?? [])].sort((a, b) => a.order - b.order);
     const photo = fields.at(-1)!;
