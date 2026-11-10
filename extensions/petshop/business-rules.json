@@ -24,6 +24,84 @@
       }
     },
     {
+      "ruleId": "petshop-grooming-portal",
+      "statement": "I would like to improve the pet shop, a simple system for studying and demonstrating the power of the Microteia platform. Execute the plan: services and appointments with a status flow (scheduled, in service, ready for pickup, done, cancelled with permission, no-show); reminders the day before and an e-mail when the pet is ready; a service may require vaccines up to date, refusing check-in while one is overdue; packages of prepaid credits; the pet weight history; a dashboard with reports; a vaccination card and an appointment receipt as PDF; a customer portal to see pets, vaccinations and appointments, request and confirm appointments.",
+      "fingerprint": "cf0a28b1",
+      "screens": [
+        "pet_petshopAppointmentItems",
+        "pet_petshopAppointments",
+        "pet_petshopBreeds",
+        "pet_petshopCustomers",
+        "pet_petshopPackages",
+        "pet_petshopPets",
+        "pet_petshopServices",
+        "pet_petshopVaccinations",
+        "pet_petshopVaccineBatches",
+        "pet_petshopVaccines",
+        "pet_petshopWeights"
+      ],
+      "lists": [
+        "pet_petshopAppointmentStatuses",
+        "pet_petshopLaboratories",
+        "pet_petshopPackageStatuses",
+        "pet_petshopPetSizes",
+        "pet_petshopServiceCategories",
+        "pet_petshopSpecies",
+        "pet_petshopVaccinationStatuses",
+        "pet_petshopVaccineBatchStatuses"
+      ],
+      "actions": [
+        "approve",
+        "cancel",
+        "check-in",
+        "confirm",
+        "finish",
+        "ready"
+      ],
+      "transitions": [
+        "appointment-approve",
+        "appointment-cancel-requested",
+        "appointment-cancel-scheduled",
+        "appointment-check-in",
+        "appointment-confirm",
+        "appointment-finish",
+        "appointment-no-show",
+        "appointment-ready",
+        "appointment-reminder",
+        "appointment-requested-in-portal",
+        "expire-on-save",
+        "expire-when-date-passes",
+        "package-credit-returned",
+        "package-expired-on-save",
+        "package-expires",
+        "package-reopened",
+        "package-used-up",
+        "reopen-on-save",
+        "vaccination-current-on-save",
+        "vaccination-overdue-on-date",
+        "vaccination-overdue-on-save",
+        "vaccination-overdue-renewed",
+        "vaccination-renewed"
+      ],
+      "permissions": [
+        "pet_petshopAppointments.cancel",
+        "pet_petshopAppointments.update"
+      ],
+      "screenSourceIds": {
+        "pet_petshopAppointmentItems": "br.com.microteia.petshop:pet_petshopAppointmentItems",
+        "pet_petshopAppointments": "br.com.microteia.petshop:pet_petshopAppointments",
+        "pet_petshopBreeds": "br.com.microteia.petshop:pet_petshopBreeds",
+        "pet_petshopCustomers": "br.com.microteia.petshop:pet_petshopCustomers",
+        "pet_petshopPackages": "br.com.microteia.petshop:pet_petshopPackages",
+        "pet_petshopPets": "br.com.microteia.petshop:pet_petshopPets",
+        "pet_petshopServices": "br.com.microteia.petshop:pet_petshopServices",
+        "pet_petshopVaccinations": "br.com.microteia.petshop:pet_petshopVaccinations",
+        "pet_petshopVaccineBatches": "br.com.microteia.petshop:pet_petshopVaccineBatches",
+        "pet_petshopVaccines": "br.com.microteia.petshop:pet_petshopVaccines",
+        "pet_petshopWeights": "br.com.microteia.petshop:pet_petshopWeights"
+      }
+    },
+    {
       "ruleId": "petshop-pet-vaccines",
       "statement": "I would like to create a controller of the Pet's vacine and alert two days (configurable) before next vacine. I have to asing a existent valid vacine. For each vacine I buy, I have to control the validity. Each vacine have a unique code, laboratory etc. If you have more idea to controller Pet's vacine, I agree to implement, but don't turn on the this extension complex.",
       "fingerprint": "209c8536",

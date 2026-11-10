@@ -9,12 +9,23 @@ import type {
   WorkflowStep,
 } from '@microteia/sdk';
 import { notificationCategory } from '@microteia/sdk';
-import { BATCH_AVAILABLE, BATCH_EXPIRED, BATCH_STATUSES, LABORATORIES, termMessageKey } from './catalog';
+import {
+  BATCH_AVAILABLE,
+  BATCH_EXPIRED,
+  BATCH_STATUSES,
+  LABORATORIES,
+  termMessageKey,
+  VACCINATION_CURRENT,
+  VACCINATION_OVERDUE,
+  VACCINATION_RENEWED,
+  VACCINATION_STATUSES,
+} from './catalog';
 import {
   BATCH_STATUS_LIST,
   LABORATORY_LIST,
   label,
   PETS,
+  VACCINATION_STATUS_LIST,
   VACCINATIONS,
   VACCINE_BATCHES,
   VACCINES,
@@ -40,6 +51,11 @@ import { NAMESPACE } from './messages';
 // ─── Lists ──────────────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, string> = { [BATCH_AVAILABLE]: 'success', [BATCH_EXPIRED]: 'danger' };
+const VACCINATION_COLOR: Record<string, string> = {
+  [VACCINATION_CURRENT]: 'success',
+  [VACCINATION_OVERDUE]: 'danger',
+  [VACCINATION_RENEWED]: 'secondary',
+};
 
 export const VACCINE_LOOKUPS: LookupModuleTemplate[] = [
   {
@@ -57,6 +73,17 @@ export const VACCINE_LOOKUPS: LookupModuleTemplate[] = [
       key: term.key,
       label: label(termMessageKey('batch-status', term.key)),
       color: STATUS_COLOR[term.key],
+    })),
+  },
+  {
+    collection: VACCINATION_STATUS_LIST,
+    label: label('lookup.vaccination-statuses'),
+    // `required`: the automations and the pet's overdue count compare these keys.
+    seed: 'required',
+    options: VACCINATION_STATUSES.map((term) => ({
+      key: term.key,
+      label: label(termMessageKey('vaccination-status', term.key)),
+      color: VACCINATION_COLOR[term.key],
     })),
   },
 ];
@@ -343,7 +370,33 @@ const VACCINATION_FIELDS: TemplateField[] = [
     section: NEXT_DOSE,
     logic: { compute: REMIND_ON },
   },
-  { key: 'notes', label: label('vaccination.field.notes'), type: 'textarea', required: false, order: 8, section: NOTES },
+  {
+    key: 'status',
+    label: label('vaccination.field.status'),
+    type: 'select',
+    lookupCollection: VACCINATION_STATUS_LIST,
+    optionsColored: true,
+    required: false,
+    defaultValue: VACCINATION_CURRENT,
+    order: 8,
+    section: NEXT_DOSE,
+    filterable: true,
+    showInList: true,
+    // Moved by the automations below — the next dose date and a later dose decide it.
+    logic: { disabledWhen: 'true' },
+  },
+  {
+    key: 'renewedBy',
+    label: label('vaccination.field.renewed-by'),
+    type: 'reference',
+    refEntity: VACCINATIONS,
+    required: false,
+    order: 9,
+    section: NEXT_DOSE,
+    // Written by the later dose's automation; empty while the dose was not renewed.
+    logic: { disabledWhen: 'true', hiddenWhen: 'isEmpty(renewedBy)' },
+  },
+  { key: 'notes', label: label('vaccination.field.notes'), type: 'textarea', required: false, order: 10, section: NOTES },
 ];
 
 const VACCINATION_SCREEN: ScreenModuleTemplate = {
@@ -503,7 +556,7 @@ export const NEXT_DOSE_REMINDER: WorkflowModuleTemplate = {
   // `remindOn` already carries the days before, so the clock fires on the day itself.
   dateReached: { field: 'remindOn', offset: '0d', at: '08:00' },
   version: 1,
-  condition: { kind: 'Expression', expression: 'not isEmpty(event.nextDoseOn)' },
+  condition: { kind: 'Expression', expression: `not isEmpty(event.nextDoseOn) and event.status != "${VACCINATION_RENEWED}"` },
   steps: [
     {
       id: 'laterDose',
@@ -541,7 +594,166 @@ export const NEXT_DOSE_REMINDER: WorkflowModuleTemplate = {
   ],
 };
 
-export const VACCINE_WORKFLOWS: WorkflowModuleTemplate[] = [BATCH_EXPIRES_ON_DATE, BATCH_STATUS_ON_SAVE, NEXT_DOSE_REMINDER];
+// ─── Vaccination status: current, overdue, renewed ──────────────────────────
+
+/**
+ * The status a dose should have today. Renewed wins: once a later dose exists, this one is answered. Then
+ * overdue from the day after the next dose. A dose saved before this version has no status, and gets one
+ * here the next time it is saved or its next dose arrives.
+ */
+export const VACCINATION_STATUS_FOR_TODAY =
+  `if(not isEmpty(event.renewedBy), "${VACCINATION_RENEWED}", ` +
+  `if(not isEmpty(event.nextDoseOn) and dateDiff(event.nextDoseOn, today(), "days") < 0, "${VACCINATION_OVERDUE}", "${VACCINATION_CURRENT}"))`;
+
+const vaccinationStatusSteps = (): WorkflowStep[] => [
+  {
+    id: 'statusForToday',
+    stepDefinitionId: 'map',
+    type: 'Action',
+    order: 0,
+    enabled: true,
+    configuration: {
+      map: {
+        kind: 'Literal',
+        value: {
+          name: 'dose',
+          fields: [
+            { name: 'id', value: { kind: 'Event', path: 'id' } },
+            { name: 'status', value: { kind: 'Expression', expression: VACCINATION_STATUS_FOR_TODAY } },
+          ],
+        },
+      },
+    },
+  },
+  {
+    id: 'writeStatus',
+    stepDefinitionId: 'upsert',
+    type: 'Action',
+    order: 1,
+    enabled: true,
+    configuration: {
+      upsert: { kind: 'Literal', value: { table: VACCINATIONS, source: 'input', property: 'dose' } satisfies UpsertStepConfig },
+    },
+  },
+];
+
+const VACCINATION_STATUS_IS_WRONG = { kind: 'Expression' as const, expression: `${VACCINATION_STATUS_FOR_TODAY} != event.status` };
+
+/** The day after the next dose, a dose nobody renewed becomes overdue — and the pet's overdue count goes up. */
+export const VACCINATION_OVERDUE_ON_DATE: WorkflowModuleTemplate = {
+  templateId: 'pet-vaccination-overdue',
+  name: label('workflow.vaccination-overdue'),
+  description: label('workflow.vaccination-overdue.description'),
+  eventName: `${VACCINATIONS}.dateReached`,
+  dateReached: { field: 'nextDoseOn', offset: '+1d', at: '00:10' },
+  version: 1,
+  condition: VACCINATION_STATUS_IS_WRONG,
+  steps: vaccinationStatusSteps(),
+};
+
+/** A dose registered late, whose date was corrected, or just renewed, gets its status as soon as it is saved. */
+export const VACCINATION_STATUS_ON_SAVE: WorkflowModuleTemplate = {
+  templateId: 'pet-vaccination-status-on-save',
+  name: label('workflow.vaccination-status'),
+  description: label('workflow.vaccination-status.description'),
+  eventName: `${VACCINATIONS}.saved`,
+  version: 1,
+  condition: VACCINATION_STATUS_IS_WRONG,
+  steps: vaccinationStatusSteps(),
+};
+
+/**
+ * The earlier doses of the same vaccine for the same pet that are still waiting for this one. Equalities go
+ * to the database; the date and the status are compared over what they found.
+ */
+export const EARLIER_DOSES: QuerySpec = {
+  table: VACCINATIONS,
+  where: [
+    { path: 'pet', op: 'eq', value: { kind: 'Event', path: 'pet' } },
+    { path: 'vaccine', op: 'eq', value: { kind: 'Event', path: 'vaccine' } },
+    { path: 'appliedOn', op: 'lt', value: { kind: 'Event', path: 'appliedOn' } },
+    { path: 'status', op: 'neq', value: { kind: 'Literal', value: VACCINATION_RENEWED } },
+  ],
+  limit: 100,
+  projections: ['id'],
+};
+
+/**
+ * A new dose renews the earlier ones: each is marked renewed, pointing at the dose that renewed it. The
+ * write fires their own save, where the status is already right, so nothing cascades.
+ */
+export const RENEW_EARLIER_DOSES: WorkflowModuleTemplate = {
+  templateId: 'pet-vaccination-renews',
+  name: label('workflow.vaccination-renews'),
+  description: label('workflow.vaccination-renews.description'),
+  eventName: `${VACCINATIONS}.saved`,
+  version: 1,
+  condition: { kind: 'Expression', expression: 'event.changeType == "created"' },
+  steps: [
+    {
+      id: 'earlierDoses',
+      stepDefinitionId: 'query',
+      type: 'Action',
+      order: 0,
+      enabled: true,
+      configuration: { query: { kind: 'Literal', value: EARLIER_DOSES } },
+    },
+    {
+      id: 'renewEach',
+      stepDefinitionId: '',
+      type: 'Loop',
+      order: 1,
+      enabled: true,
+      configuration: {},
+      loop: {
+        source: { kind: 'Output', stepId: 'earlierDoses', outputId: 'results' },
+        itemName: 'earlier',
+        outputName: 'renewed',
+        body: [
+          {
+            id: 'renewal',
+            stepDefinitionId: 'map',
+            type: 'Action',
+            order: 0,
+            enabled: true,
+            configuration: {
+              map: {
+                kind: 'Literal',
+                value: {
+                  name: 'renewal',
+                  fields: [
+                    { name: 'id', value: { kind: 'Expression', expression: 'earlier.id' } },
+                    { name: 'renewedBy', value: { kind: 'Event', path: 'id' } },
+                    { name: 'status', value: { kind: 'Literal', value: VACCINATION_RENEWED } },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            id: 'writeRenewal',
+            stepDefinitionId: 'upsert',
+            type: 'Action',
+            order: 1,
+            enabled: true,
+            configuration: {
+              upsert: { kind: 'Literal', value: { table: VACCINATIONS, source: 'input', property: 'renewal' } satisfies UpsertStepConfig },
+            },
+          },
+        ],
+      },
+    },
+  ],
+};
+
+export const VACCINE_WORKFLOWS: WorkflowModuleTemplate[] = [
+  BATCH_EXPIRES_ON_DATE,
+  BATCH_STATUS_ON_SAVE,
+  NEXT_DOSE_REMINDER,
+  VACCINATION_OVERDUE_ON_DATE,
+  VACCINATION_STATUS_ON_SAVE,
+  RENEW_EARLIER_DOSES,
+];
 
 export const VACCINE_CONTRIBUTIONS: Contribution[] = [
   notificationCategory({

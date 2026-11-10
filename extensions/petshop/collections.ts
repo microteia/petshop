@@ -17,6 +17,19 @@ export const VACCINE_BATCHES = 'pet_petshopVaccineBatches';
 export const VACCINATIONS = 'pet_petshopVaccinations';
 export const LABORATORY_LIST = 'pet_petshopLaboratories';
 export const BATCH_STATUS_LIST = 'pet_petshopVaccineBatchStatuses';
+export const VACCINATION_STATUS_LIST = 'pet_petshopVaccinationStatuses';
+
+export const SERVICES = 'pet_petshopServices';
+export const SERVICE_CATEGORY_LIST = 'pet_petshopServiceCategories';
+export const APPOINTMENTS = 'pet_petshopAppointments';
+export const APPOINTMENT_ITEMS = 'pet_petshopAppointmentItems';
+export const APPOINTMENT_STATUS_LIST = 'pet_petshopAppointmentStatuses';
+export const PACKAGES = 'pet_petshopPackages';
+export const PACKAGE_STATUS_LIST = 'pet_petshopPackageStatuses';
+export const WEIGHTS = 'pet_petshopWeights';
+
+/** The universal identity of a screen of this extension. It never changes: see business-rules.json. */
+export const sourceIdOf = (collection: string): string => `${NAMESPACE}:${collection}`;
 
 /** A message reference, resolved against the bundles in messages.ts. */
 export const label = (key: string): string => `@${NAMESPACE}/${key}`;

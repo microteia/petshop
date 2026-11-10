@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "intent": "Create a Pet Shop Management System to manage customers and their pets. Each customer may have multiple pets, with information such as name, species, breed, sex, age, size, and relevant notes. The system should provide a preloaded catalog of the most common dog and cat breeds, while also allowing users to add new breeds. The breed is a separate entity with a type (the species: dog, cat, etc.); a pet has a single breed field, filtered by its species. Vaccines: the shop registers the vaccines it uses (name, laboratory, diseases covered) and each batch it buys (lot number unique per vaccine, manufacture and expiry dates, doses bought); a batch past its expiry date is expired and can no longer be chosen. Each vaccination of a pet records the vaccine, an available batch, the date applied, the next dose date and who applied it; staff and the pet's owner are alerted a configurable number of days (default 2) before the next dose.",
+  "intent": "Create a Pet Shop Management System to manage customers and their pets. Each customer may have multiple pets, with information such as name, species, breed, sex, age, size, and relevant notes. The system should provide a preloaded catalog of the most common dog and cat breeds, while also allowing users to add new breeds. The breed is a separate entity with a type (the species: dog, cat, etc.); a pet has a single breed field, filtered by its species. Vaccines: the shop registers the vaccines it uses (name, laboratory, diseases covered) and each batch it buys (lot number unique per vaccine, manufacture and expiry dates, doses bought); a batch past its expiry date is expired and can no longer be chosen. Each vaccination of a pet records the vaccine, an available batch, the date applied, the next dose date and who applied it; staff and the pet's owner are alerted a configurable number of days (default 2) before the next dose. Grooming and care: the shop keeps a catalog of services with a price, and books appointments for a pet with one or more services; an appointment moves from scheduled to in service, ready for pickup and done, can be cancelled by whoever holds the cancel permission, and becomes a no-show the day after if nobody came. The owner is reminded the day before and told when the pet is ready. A service may require the pet's vaccines to be up to date, and then check-in is refused while a vaccination is overdue. Customers buy packages of credits for a service, used by appointment lines. Each visit can record the pet's weight. A dashboard and reports summarise revenue, services, pets and vaccines due; a vaccination card and an appointment receipt are generated as PDFs. Customers use a portal to see their pets, vaccinations and appointments, request an appointment and confirm one. The pet shop has no dashboard and no agenda of its own: its reports are cards on the office Dashboard extension, and every appointment and every next vaccine dose is mirrored as an item of the Calendar extension, where dragging an appointment reschedules it.",
   "target": "extension",
   "extensionId": "br.com.microteia.petshop",
   "entities": [
@@ -162,6 +162,57 @@
           "semanticType": "scalar",
           "type": "file",
           "description": "A picture of the animal, shown as the avatar on its card so staff recognise it at a glance."
+        },
+        {
+          "key": "currentWeightKg",
+          "label": "Weight (kg)",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "children",
+          "aggregation": {
+            "from": "WeightRecord",
+            "via": "pet",
+            "op": "latest",
+            "field": "weightKg",
+            "orderBy": [
+              {
+                "path": "measuredOn",
+                "dir": "desc"
+              }
+            ]
+          }
+        },
+        {
+          "key": "weighedOn",
+          "label": "Weighed on",
+          "semanticType": "derived",
+          "type": "date",
+          "derivedFrom": "children",
+          "aggregation": {
+            "from": "WeightRecord",
+            "via": "pet",
+            "op": "latest",
+            "field": "measuredOn",
+            "orderBy": [
+              {
+                "path": "measuredOn",
+                "dir": "desc"
+              }
+            ]
+          }
+        },
+        {
+          "key": "overdueVaccines",
+          "label": "Overdue vaccines",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "children",
+          "aggregation": {
+            "from": "Vaccination",
+            "via": "pet",
+            "op": "count",
+            "filter": "status == \"overdue\""
+          }
         }
       ],
       "tabs": [
@@ -388,7 +439,7 @@
       "name": "Vaccination",
       "kind": "child",
       "collection": "pet_petshopVaccinations",
-      "description": "One dose of a vaccine applied to a pet, from an available batch, with the date of the next dose and when to remind about it. The reminder itself is a workflow on the kernel clock (pet-vaccine-reminder in vaccines.ts): a vaccination has no states, so the model's behavior block cannot describe it. The batch is chosen through an options filter (only available batches of the chosen vaccine), a form rule the model cannot express either.",
+      "description": "One dose of a vaccine applied to a pet, from an available batch, with the date of the next dose and when to remind about it. The reminder itself is a workflow on the kernel clock (pet-vaccine-reminder in vaccines.ts): a vaccination has no states, so the model's behavior block cannot describe it. The batch is chosen through an options filter (only available batches of the chosen vaccine), a form rule the model cannot express either. Its status is current until the day after the next dose, when it becomes overdue; a later dose of the same vaccine for the same pet marks it renewed and records which dose renewed it. Its next dose is mirrored as an item of the Calendar extension.",
       "titleField": "vaccine",
       "fields": [
         {
@@ -462,6 +513,22 @@
           "label": "Notes",
           "semanticType": "scalar",
           "type": "textarea"
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "semanticType": "scalar",
+          "type": "select",
+          "lookup": "pet_petshopVaccinationStatuses",
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "renewedBy",
+          "label": "Renewed by",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Vaccination"
         }
       ]
     },
@@ -475,6 +542,406 @@
       "name": "VaccineBatchStatus",
       "kind": "lookup",
       "collection": "pet_petshopVaccineBatchStatuses",
+      "fields": []
+    },
+    {
+      "name": "Service",
+      "kind": "entity",
+      "collection": "pet_petshopServices",
+      "titleField": "name",
+      "description": "Something the shop does to a pet and charges for: a bath, a grooming, a nail trim.",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Name",
+          "semanticType": "scalar",
+          "type": "text",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "key": "category",
+          "label": "Category",
+          "semanticType": "scalar",
+          "type": "select",
+          "lookup": "pet_petshopServiceCategories",
+          "required": true,
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "price",
+          "label": "Price",
+          "semanticType": "scalar",
+          "type": "currency",
+          "required": true,
+          "showInList": true
+        },
+        {
+          "key": "durationMinutes",
+          "label": "Duration (minutes)",
+          "semanticType": "scalar",
+          "type": "number",
+          "showInList": true
+        },
+        {
+          "key": "requiresVaccines",
+          "label": "Requires vaccines up to date",
+          "semanticType": "scalar",
+          "type": "checkbox",
+          "filterable": true
+        },
+        {
+          "key": "description",
+          "label": "Description",
+          "semanticType": "scalar",
+          "type": "textarea"
+        }
+      ],
+      "keys": [
+        {
+          "name": "name",
+          "kind": "unique",
+          "fields": [
+            "name"
+          ],
+          "normalize": {
+            "caseInsensitive": true
+          },
+          "message": "There is already a service with this name."
+        }
+      ]
+    },
+    {
+      "name": "ServiceCategory",
+      "kind": "lookup",
+      "collection": "pet_petshopServiceCategories",
+      "fields": []
+    },
+    {
+      "name": "Appointment",
+      "kind": "child",
+      "collection": "pet_petshopAppointments",
+      "titleField": "number",
+      "description": "A visit booked for one pet on a day and time, with one line per service. Numbered per year. A tab of the pet and its own menu entry. Each appointment is mirrored as an item of the Calendar extension (calendar.ts), kept in step on every save and delete; dragging the item to another day reschedules the appointment.",
+      "fields": [
+        {
+          "key": "number",
+          "label": "Number",
+          "semanticType": "scalar",
+          "type": "text",
+          "searchable": true,
+          "showInList": true
+        },
+        {
+          "key": "pet",
+          "label": "Pet",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Pet",
+          "required": true,
+          "searchable": true,
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "scheduledOn",
+          "label": "Date",
+          "semanticType": "scalar",
+          "type": "date",
+          "required": true,
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "time",
+          "label": "Time",
+          "semanticType": "scalar",
+          "type": "time",
+          "required": true,
+          "showInList": true
+        },
+        {
+          "key": "groomer",
+          "label": "Groomer",
+          "semanticType": "scalar",
+          "type": "text",
+          "searchable": true
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "semanticType": "scalar",
+          "type": "select",
+          "lookup": "pet_petshopAppointmentStatuses",
+          "required": true,
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "confirmedByOwner",
+          "label": "Confirmed by the owner",
+          "semanticType": "scalar",
+          "type": "checkbox",
+          "filterable": true
+        },
+        {
+          "key": "total",
+          "label": "Total",
+          "semanticType": "derived",
+          "type": "currency",
+          "derivedFrom": "children",
+          "aggregation": {
+            "from": "AppointmentItem",
+            "via": "appointment",
+            "op": "sum",
+            "field": "price"
+          },
+          "showInList": true
+        },
+        {
+          "key": "vaccineChecks",
+          "label": "Services that require vaccines",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "children",
+          "aggregation": {
+            "from": "AppointmentItem",
+            "via": "appointment",
+            "op": "count",
+            "filter": "requiresVaccines == true"
+          }
+        },
+        {
+          "key": "cancelReason",
+          "label": "Reason for cancelling",
+          "semanticType": "scalar",
+          "type": "text"
+        },
+        {
+          "key": "notes",
+          "label": "Requests and notes",
+          "semanticType": "scalar",
+          "type": "textarea"
+        }
+      ],
+      "tabs": [
+        {
+          "kind": "documents",
+          "because": "The receipt generated when the pet is picked up is attached here, and shared with the owner in the portal."
+        }
+      ]
+    },
+    {
+      "name": "AppointmentItem",
+      "kind": "child",
+      "collection": "pet_petshopAppointmentItems",
+      "titleField": "service",
+      "description": "One service of an appointment, at the price charged that day — or paid with a credit of one of the pet's packages.",
+      "fields": [
+        {
+          "key": "appointment",
+          "label": "Appointment",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Appointment",
+          "required": true
+        },
+        {
+          "key": "service",
+          "label": "Service",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Service",
+          "required": true,
+          "searchable": true,
+          "showInList": true
+        },
+        {
+          "key": "package",
+          "label": "Paid with package",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Package"
+        },
+        {
+          "key": "price",
+          "label": "Price",
+          "semanticType": "snapshot",
+          "type": "currency",
+          "source": "Service.price",
+          "showInList": true,
+          "reason": "The price charged on the day of the appointment; a later change to the service price must not rewrite past appointments. A line paid with a package costs nothing."
+        },
+        {
+          "key": "requiresVaccines",
+          "label": "Requires vaccines up to date",
+          "semanticType": "snapshot",
+          "type": "checkbox",
+          "source": "Service.requiresVaccines",
+          "reason": "The requirement in force when the service was booked; changing the catalog must not suddenly block or free an appointment already made."
+        }
+      ],
+      "keys": [
+        {
+          "name": "service",
+          "kind": "unique",
+          "fields": [
+            "service"
+          ],
+          "scope": "parent",
+          "message": "This appointment already has this service."
+        }
+      ]
+    },
+    {
+      "name": "AppointmentStatus",
+      "kind": "lookup",
+      "collection": "pet_petshopAppointmentStatuses",
+      "fields": []
+    },
+    {
+      "name": "Package",
+      "kind": "child",
+      "collection": "pet_petshopPackages",
+      "titleField": "service",
+      "description": "A number of credits of one service bought in advance for a pet (\"4 baths\"). Each appointment line paid with it uses one credit.",
+      "fields": [
+        {
+          "key": "pet",
+          "label": "Pet",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Pet",
+          "required": true
+        },
+        {
+          "key": "service",
+          "label": "Service",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Service",
+          "required": true,
+          "searchable": true,
+          "showInList": true
+        },
+        {
+          "key": "credits",
+          "label": "Credits",
+          "semanticType": "scalar",
+          "type": "number",
+          "required": true
+        },
+        {
+          "key": "purchasedOn",
+          "label": "Purchased on",
+          "semanticType": "scalar",
+          "type": "date",
+          "required": true
+        },
+        {
+          "key": "expiresOn",
+          "label": "Expires on",
+          "semanticType": "scalar",
+          "type": "date",
+          "showInList": true
+        },
+        {
+          "key": "price",
+          "label": "Price paid",
+          "semanticType": "scalar",
+          "type": "currency"
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "semanticType": "scalar",
+          "type": "select",
+          "lookup": "pet_petshopPackageStatuses",
+          "required": true,
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "creditsUsed",
+          "label": "Credits used",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "children",
+          "aggregation": {
+            "from": "AppointmentItem",
+            "via": "package",
+            "op": "count"
+          }
+        },
+        {
+          "key": "creditsLeft",
+          "label": "Credits left",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "self",
+          "expression": "credits - coalesce(creditsUsed, 0)",
+          "showInList": true
+        }
+      ]
+    },
+    {
+      "name": "PackageStatus",
+      "kind": "lookup",
+      "collection": "pet_petshopPackageStatuses",
+      "fields": []
+    },
+    {
+      "name": "WeightRecord",
+      "kind": "child",
+      "collection": "pet_petshopWeights",
+      "titleField": "summary",
+      "description": "The pet's weight on one day. The latest one is the pet's current weight.",
+      "fields": [
+        {
+          "key": "pet",
+          "label": "Pet",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Pet",
+          "required": true
+        },
+        {
+          "key": "measuredOn",
+          "label": "Date",
+          "semanticType": "scalar",
+          "type": "date",
+          "required": true,
+          "showInList": true
+        },
+        {
+          "key": "weightKg",
+          "label": "Weight (kg)",
+          "semanticType": "scalar",
+          "type": "number",
+          "required": true,
+          "showInList": true
+        },
+        {
+          "key": "notes",
+          "label": "Notes",
+          "semanticType": "scalar",
+          "type": "textarea"
+        },
+        {
+          "key": "summary",
+          "label": "Weighing",
+          "semanticType": "derived",
+          "type": "text",
+          "derivedFrom": "self",
+          "expression": "if(isEmpty(measuredOn) or isEmpty(weightKg), null, concat(formatDate(measuredOn, \"DD/MM/YYYY\"), \" · \", weightKg, \" kg\"))"
+        }
+      ]
+    },
+    {
+      "name": "VaccinationStatus",
+      "kind": "lookup",
+      "collection": "pet_petshopVaccinationStatuses",
       "fields": []
     }
   ],
@@ -581,6 +1048,119 @@
       "storage": "lookup",
       "ownership": "association",
       "required": true
+    },
+    {
+      "sourceEntity": "Vaccination",
+      "targetEntity": "VaccinationStatus",
+      "sourceField": "status",
+      "type": "many-to-one",
+      "storage": "lookup",
+      "ownership": "association"
+    },
+    {
+      "sourceEntity": "Vaccination",
+      "targetEntity": "Vaccination",
+      "sourceField": "renewedBy",
+      "type": "many-to-one",
+      "storage": "reference",
+      "ownership": "association"
+    },
+    {
+      "sourceEntity": "Service",
+      "targetEntity": "ServiceCategory",
+      "sourceField": "category",
+      "type": "many-to-one",
+      "storage": "lookup",
+      "ownership": "association",
+      "required": true
+    },
+    {
+      "sourceEntity": "Appointment",
+      "targetEntity": "Pet",
+      "sourceField": "pet",
+      "type": "many-to-one",
+      "storage": "child",
+      "ownership": "association",
+      "name": "pet-appointments",
+      "required": true,
+      "onDelete": "orphan"
+    },
+    {
+      "sourceEntity": "Appointment",
+      "targetEntity": "AppointmentStatus",
+      "sourceField": "status",
+      "type": "many-to-one",
+      "storage": "lookup",
+      "ownership": "association",
+      "required": true
+    },
+    {
+      "sourceEntity": "AppointmentItem",
+      "targetEntity": "Appointment",
+      "sourceField": "appointment",
+      "type": "many-to-one",
+      "storage": "child",
+      "ownership": "composition",
+      "name": "appointment-items",
+      "required": true,
+      "onDelete": "orphan"
+    },
+    {
+      "sourceEntity": "AppointmentItem",
+      "targetEntity": "Service",
+      "sourceField": "service",
+      "type": "many-to-one",
+      "storage": "reference",
+      "ownership": "association",
+      "required": true
+    },
+    {
+      "sourceEntity": "AppointmentItem",
+      "targetEntity": "Package",
+      "sourceField": "package",
+      "type": "many-to-one",
+      "storage": "reference",
+      "ownership": "association"
+    },
+    {
+      "sourceEntity": "Package",
+      "targetEntity": "Pet",
+      "sourceField": "pet",
+      "type": "many-to-one",
+      "storage": "child",
+      "ownership": "composition",
+      "name": "pet-packages",
+      "required": true,
+      "onDelete": "orphan"
+    },
+    {
+      "sourceEntity": "Package",
+      "targetEntity": "Service",
+      "sourceField": "service",
+      "type": "many-to-one",
+      "storage": "reference",
+      "ownership": "association",
+      "required": true
+    },
+    {
+      "sourceEntity": "Package",
+      "targetEntity": "PackageStatus",
+      "sourceField": "status",
+      "type": "many-to-one",
+      "storage": "lookup",
+      "ownership": "association",
+      "required": true
+    },
+    {
+      "sourceEntity": "WeightRecord",
+      "targetEntity": "Pet",
+      "sourceField": "pet",
+      "type": "many-to-one",
+      "storage": "child",
+      "ownership": "composition",
+      "name": "pet-weights",
+      "required": true,
+      "onDelete": "orphan"
     }
   ],
   "behavior": {
@@ -644,6 +1224,68 @@
         "field": "remindDaysBefore",
         "expression": "isEmpty(remindDaysBefore) or (remindDaysBefore >= 0 and remindDaysBefore <= 60)",
         "message": "Remind between 0 and 60 days before."
+      },
+      {
+        "scope": "transition",
+        "entity": "Appointment",
+        "transition": "appointment-check-in",
+        "enforcement": "blocks",
+        "expression": "coalesce(vaccineChecks, 0) == 0 or coalesce(pet.overdueVaccines, 0) == 0",
+        "message": "This pet has an overdue vaccine, and a service of this appointment requires vaccines up to date."
+      },
+      {
+        "scope": "field",
+        "entity": "Appointment",
+        "field": "cancelReason",
+        "expression": "status != \"cancelled\" or not isEmpty(cancelReason)",
+        "message": "Say why the appointment was cancelled."
+      },
+      {
+        "scope": "collection",
+        "entity": "Service",
+        "key": "name",
+        "message": "There is already a service with this name."
+      },
+      {
+        "scope": "field",
+        "entity": "Service",
+        "field": "price",
+        "expression": "price >= 0",
+        "message": "The price cannot be negative."
+      },
+      {
+        "scope": "collection",
+        "entity": "AppointmentItem",
+        "key": "service",
+        "message": "This appointment already has this service."
+      },
+      {
+        "scope": "field",
+        "entity": "Package",
+        "field": "credits",
+        "expression": "credits > 0",
+        "message": "Enter a number of credits greater than zero."
+      },
+      {
+        "scope": "field",
+        "entity": "Package",
+        "field": "expiresOn",
+        "expression": "isEmpty(expiresOn) or dateDiff(expiresOn, purchasedOn, \"days\") > 0",
+        "message": "The package must expire after the purchase date."
+      },
+      {
+        "scope": "field",
+        "entity": "WeightRecord",
+        "field": "weightKg",
+        "expression": "weightKg > 0 and weightKg < 200",
+        "message": "Enter a weight between 0 and 200 kg."
+      },
+      {
+        "scope": "field",
+        "entity": "WeightRecord",
+        "field": "measuredOn",
+        "expression": "dateDiff(measuredOn, today(), \"days\") <= 0",
+        "message": "The date cannot be in the future."
       }
     ],
     "states": [
@@ -662,6 +1304,90 @@
           }
         ],
         "initial": "available"
+      },
+      {
+        "entity": "Vaccination",
+        "field": "status",
+        "lookup": "pet_petshopVaccinationStatuses",
+        "options": [
+          {
+            "key": "current",
+            "label": "Current"
+          },
+          {
+            "key": "overdue",
+            "label": "Overdue"
+          },
+          {
+            "key": "renewed",
+            "label": "Renewed"
+          }
+        ],
+        "initial": "current",
+        "terminal": [
+          "renewed"
+        ]
+      },
+      {
+        "entity": "Appointment",
+        "field": "status",
+        "lookup": "pet_petshopAppointmentStatuses",
+        "options": [
+          {
+            "key": "requested",
+            "label": "Requested"
+          },
+          {
+            "key": "scheduled",
+            "label": "Scheduled"
+          },
+          {
+            "key": "in-service",
+            "label": "In service"
+          },
+          {
+            "key": "ready",
+            "label": "Ready for pickup"
+          },
+          {
+            "key": "done",
+            "label": "Done"
+          },
+          {
+            "key": "cancelled",
+            "label": "Cancelled"
+          },
+          {
+            "key": "no-show",
+            "label": "No-show"
+          }
+        ],
+        "initial": "scheduled",
+        "terminal": [
+          "done",
+          "cancelled",
+          "no-show"
+        ]
+      },
+      {
+        "entity": "Package",
+        "field": "status",
+        "lookup": "pet_petshopPackageStatuses",
+        "options": [
+          {
+            "key": "active",
+            "label": "Active"
+          },
+          {
+            "key": "used-up",
+            "label": "Used up"
+          },
+          {
+            "key": "expired",
+            "label": "Expired"
+          }
+        ],
+        "initial": "active"
       }
     ],
     "transitions": [
@@ -721,6 +1447,409 @@
             "kind": "set-field",
             "field": "status",
             "value": "\"available\""
+          }
+        ]
+      },
+      {
+        "name": "vaccination-overdue-on-date",
+        "entity": "Vaccination",
+        "from": "current",
+        "to": "overdue",
+        "trigger": {
+          "kind": "date-reached",
+          "field": "nextDoseOn",
+          "offset": "+1d",
+          "at": "00:10"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"overdue\""
+          }
+        ]
+      },
+      {
+        "name": "vaccination-overdue-on-save",
+        "entity": "Vaccination",
+        "from": "current",
+        "to": "overdue",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "not isEmpty(nextDoseOn) and dateDiff(nextDoseOn, today(), \"days\") < 0"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"overdue\""
+          }
+        ]
+      },
+      {
+        "name": "vaccination-current-on-save",
+        "entity": "Vaccination",
+        "from": "overdue",
+        "to": "current",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "isEmpty(nextDoseOn) or dateDiff(nextDoseOn, today(), \"days\") >= 0"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"current\""
+          }
+        ]
+      },
+      {
+        "name": "vaccination-renewed",
+        "entity": "Vaccination",
+        "from": "current",
+        "to": "renewed",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "not isEmpty(renewedBy)"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"renewed\""
+          }
+        ]
+      },
+      {
+        "name": "vaccination-overdue-renewed",
+        "entity": "Vaccination",
+        "from": "overdue",
+        "to": "renewed",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "not isEmpty(renewedBy)"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"renewed\""
+          }
+        ]
+      },
+      {
+        "name": "appointment-requested-in-portal",
+        "entity": "Appointment",
+        "from": "scheduled",
+        "to": "requested",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "changeType == \"created\" and createdVia == \"portal\""
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"requested\""
+          },
+          {
+            "kind": "notify"
+          }
+        ]
+      },
+      {
+        "name": "appointment-approve",
+        "entity": "Appointment",
+        "from": "requested",
+        "to": "scheduled",
+        "trigger": {
+          "kind": "user-action",
+          "action": "approve"
+        },
+        "actor": "staff",
+        "permission": "pet_petshopAppointments.update",
+        "description": "Accept an appointment the owner requested in the portal, so it is scheduled.",
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"scheduled\""
+          }
+        ]
+      },
+      {
+        "name": "appointment-confirm",
+        "entity": "Appointment",
+        "from": "scheduled",
+        "to": "scheduled",
+        "trigger": {
+          "kind": "user-action",
+          "action": "confirm"
+        },
+        "description": "The owner, or the staff on the owner's behalf, confirms that the pet will come to a scheduled appointment.",
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "confirmedByOwner",
+            "value": "true"
+          }
+        ]
+      },
+      {
+        "name": "appointment-check-in",
+        "entity": "Appointment",
+        "from": "scheduled",
+        "to": "in-service",
+        "trigger": {
+          "kind": "user-action",
+          "action": "check-in"
+        },
+        "actor": "staff",
+        "permission": "pet_petshopAppointments.update",
+        "description": "The pet arrived and the service starts. Refused while a booked service requires vaccines and the pet has an overdue one.",
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"in-service\""
+          }
+        ]
+      },
+      {
+        "name": "appointment-ready",
+        "entity": "Appointment",
+        "from": "in-service",
+        "to": "ready",
+        "trigger": {
+          "kind": "user-action",
+          "action": "ready"
+        },
+        "actor": "staff",
+        "permission": "pet_petshopAppointments.update",
+        "description": "The service is finished and the pet is waiting for its owner, who is told by e-mail.",
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"ready\""
+          },
+          {
+            "kind": "notify"
+          }
+        ]
+      },
+      {
+        "name": "appointment-finish",
+        "entity": "Appointment",
+        "from": "ready",
+        "to": "done",
+        "trigger": {
+          "kind": "user-action",
+          "action": "finish"
+        },
+        "actor": "staff",
+        "permission": "pet_petshopAppointments.update",
+        "description": "The owner picked the pet up; the receipt is generated and shared with the owner in the portal.",
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"done\""
+          },
+          {
+            "kind": "generate-document",
+            "template": "pet-appointment-receipt",
+            "output": "pdf"
+          }
+        ]
+      },
+      {
+        "name": "appointment-cancel-requested",
+        "entity": "Appointment",
+        "from": "requested",
+        "to": "cancelled",
+        "trigger": {
+          "kind": "user-action",
+          "action": "cancel"
+        },
+        "actor": "the manager",
+        "permission": "pet_petshopAppointments.cancel",
+        "description": "Cancel an appointment that was requested and will not happen, with the reason.",
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"cancelled\""
+          }
+        ]
+      },
+      {
+        "name": "appointment-cancel-scheduled",
+        "entity": "Appointment",
+        "from": "scheduled",
+        "to": "cancelled",
+        "trigger": {
+          "kind": "user-action",
+          "action": "cancel"
+        },
+        "actor": "the manager",
+        "permission": "pet_petshopAppointments.cancel",
+        "description": "Cancel a scheduled appointment that will not happen, with the reason.",
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"cancelled\""
+          }
+        ]
+      },
+      {
+        "name": "appointment-no-show",
+        "entity": "Appointment",
+        "from": "scheduled",
+        "to": "no-show",
+        "trigger": {
+          "kind": "date-reached",
+          "field": "scheduledOn",
+          "offset": "+1d",
+          "at": "00:10"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"no-show\""
+          }
+        ]
+      },
+      {
+        "name": "appointment-reminder",
+        "entity": "Appointment",
+        "from": "scheduled",
+        "to": "scheduled",
+        "trigger": {
+          "kind": "date-reached",
+          "field": "scheduledOn",
+          "offset": "-1d",
+          "at": "18:00"
+        },
+        "effects": [
+          {
+            "kind": "notify"
+          }
+        ]
+      },
+      {
+        "name": "package-used-up",
+        "entity": "Package",
+        "from": "active",
+        "to": "used-up",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "coalesce(creditsUsed, 0) >= credits"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"used-up\""
+          }
+        ]
+      },
+      {
+        "name": "package-credit-returned",
+        "entity": "Package",
+        "from": "used-up",
+        "to": "active",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "coalesce(creditsUsed, 0) < credits and (isEmpty(expiresOn) or dateDiff(expiresOn, today(), \"days\") >= 0)"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"active\""
+          }
+        ]
+      },
+      {
+        "name": "package-expires",
+        "entity": "Package",
+        "from": "active",
+        "to": "expired",
+        "trigger": {
+          "kind": "date-reached",
+          "field": "expiresOn",
+          "offset": "+1d",
+          "at": "00:05"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"expired\""
+          }
+        ]
+      },
+      {
+        "name": "package-expired-on-save",
+        "entity": "Package",
+        "from": "active",
+        "to": "expired",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "not isEmpty(expiresOn) and dateDiff(expiresOn, today(), \"days\") < 0"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"expired\""
+          }
+        ]
+      },
+      {
+        "name": "package-reopened",
+        "entity": "Package",
+        "from": "expired",
+        "to": "active",
+        "trigger": {
+          "kind": "entity-event",
+          "event": "saved"
+        },
+        "guard": {
+          "expression": "coalesce(creditsUsed, 0) < credits and (isEmpty(expiresOn) or dateDiff(expiresOn, today(), \"days\") >= 0)"
+        },
+        "effects": [
+          {
+            "kind": "set-field",
+            "field": "status",
+            "value": "\"active\""
           }
         ]
       }

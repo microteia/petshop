@@ -12,6 +12,40 @@ Each entry matches `manifest.version` in `plugin.ts`. The newest one goes on top
 - What a person will notice, in one plain sentence.
 -->
 
+#### [3.7.3] — 2026-11-10
+
+- Weighings in a pet's Weight history show their date and weight instead of "Untitled".
+
+#### [3.7.2] — 2026-11-10
+
+- The pet card no longer says "0 overdue vaccine(s)": the warning appears only when a vaccine is overdue.
+- Pet Shop appointments on the Calendar show their time once instead of twice.
+
+#### [3.7.1] — 2026-11-10
+
+- Appointment cards are titled with the appointment number and show the pet's name below it, instead of a code.
+
+#### [3.7.0] — 2026-11-10
+
+- Pet Shop no longer has a Dashboard menu of its own: its four cards — revenue by month, most requested services, pets by species and vaccines due in 30 days — now appear on the office Dashboard, where you choose which ones to show, in what order and at what width.
+- Every appointment appears on the Calendar on its day and time, and dragging it to another day reschedules it and asks the owner to confirm again. Only requested and scheduled appointments can be moved.
+- Every next vaccine dose appears on the Calendar, marked critical once it is overdue and closed once it is renewed.
+- Pet Shop now requires the Calendar extension.
+
+#### [3.6.0] — 2026-11-10
+
+- A new Services screen lists what the shop offers — bath, grooming, nail trim and more, already filled in — each with its category, price, duration and whether it requires the pet's vaccines to be up to date.
+- A new Appointments screen, also a tab of each pet, books a visit for a day and time with one or more services. Each appointment gets a number per year, and its total adds up the prices charged that day.
+- Appointments move through buttons: Check in, Ready for pickup and Finish. A scheduled appointment nobody checked in becomes a no-show the next day. Cancelling asks for the reason and is only offered to people who have the new "Cancel appointments" permission.
+- Check in is refused when a service requires vaccines up to date and the pet has an overdue one.
+- The owner gets an e-mail the evening before the appointment, and another when the pet is ready for pickup.
+- Each vaccination now shows whether it is current, overdue (from the day after the next dose) or renewed (once a later dose is registered). The pet shows how many vaccines are overdue.
+- Each pet has a Packages tab: sell a number of credits of a service ("4 baths"). An appointment service paid with a package costs nothing and uses one credit, and the package shows the credits left until it is used up or expires.
+- Each pet has a Weight history tab, and the pet shows its latest weight.
+- A Dashboard opens when you enter the organization, with revenue by month, the most requested services, pets by species and the vaccines due in the next 30 days. Appointments by status is available in Reports.
+- Generate a vaccination card PDF from any pet. Finishing an appointment attaches its receipt.
+- Customers can use the portal: invite them from their record, and they see their pets, vaccinations, weight, packages, appointments and receipts, request an appointment and confirm one. A requested appointment alerts the staff to approve it.
+
 #### [3.5.0] — 2026-11-10
 
 - A new Vaccines screen in the menu lists the vaccines the shop uses, each with its laboratory and what it protects against; the common laboratories are already on the list.

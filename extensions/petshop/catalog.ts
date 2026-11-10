@@ -132,6 +132,86 @@ export const BATCH_STATUSES: Term[] = [
   { key: BATCH_EXPIRED, en: 'Expired', ptBR: 'Vencido' },
 ];
 
+/**
+ * The states of a vaccination. A dose is current until the day after its next dose, then overdue; a
+ * later dose of the same vaccine for the same pet renews it. The automations compare these KEYS.
+ */
+export const VACCINATION_CURRENT = 'current';
+export const VACCINATION_OVERDUE = 'overdue';
+export const VACCINATION_RENEWED = 'renewed';
+
+export const VACCINATION_STATUSES: Term[] = [
+  { key: VACCINATION_CURRENT, en: 'Current', ptBR: 'Em dia' },
+  { key: VACCINATION_OVERDUE, en: 'Overdue', ptBR: 'Atrasada' },
+  { key: VACCINATION_RENEWED, en: 'Renewed', ptBR: 'Renovada' },
+];
+
+/** The kinds of service the shop offers. The shop adds its own from the service form. */
+export const SERVICE_CATEGORIES: Term[] = [
+  { key: 'bath', en: 'Bath', ptBR: 'Banho' },
+  { key: 'grooming', en: 'Grooming', ptBR: 'Tosa' },
+  { key: 'hygiene', en: 'Hygiene and care', ptBR: 'Higiene e cuidados' },
+];
+
+/**
+ * The life of an appointment. Born `scheduled` (or `requested`, when the owner asks for it in the portal);
+ * `done`, `cancelled` and `no-show` are the end. The flows and the buttons compare these KEYS.
+ */
+export const APPOINTMENT = {
+  requested: 'requested',
+  scheduled: 'scheduled',
+  inService: 'in-service',
+  ready: 'ready',
+  done: 'done',
+  cancelled: 'cancelled',
+  noShow: 'no-show',
+} as const;
+
+export const APPOINTMENT_STATUSES: Term[] = [
+  { key: APPOINTMENT.requested, en: 'Requested', ptBR: 'Solicitado' },
+  { key: APPOINTMENT.scheduled, en: 'Scheduled', ptBR: 'Agendado' },
+  { key: APPOINTMENT.inService, en: 'In service', ptBR: 'Em atendimento' },
+  { key: APPOINTMENT.ready, en: 'Ready for pickup', ptBR: 'Pronto para retirada' },
+  { key: APPOINTMENT.done, en: 'Done', ptBR: 'Concluído' },
+  { key: APPOINTMENT.cancelled, en: 'Cancelled', ptBR: 'Cancelado' },
+  { key: APPOINTMENT.noShow, en: 'No-show', ptBR: 'Não compareceu' },
+];
+
+/** The states of a package of credits. Moved only by the automations, from its credits and its date. */
+export const PACKAGE_ACTIVE = 'active';
+export const PACKAGE_USED_UP = 'used-up';
+export const PACKAGE_EXPIRED = 'expired';
+
+export const PACKAGE_STATUSES: Term[] = [
+  { key: PACKAGE_ACTIVE, en: 'Active', ptBR: 'Ativo' },
+  { key: PACKAGE_USED_UP, en: 'Used up', ptBR: 'Esgotado' },
+  { key: PACKAGE_EXPIRED, en: 'Expired', ptBR: 'Vencido' },
+];
+
+/**
+ * The services a new shop starts with. Their names are message references, written into the record in the
+ * organization's language when it is seeded; from then on they are the shop's data, prices included.
+ */
+export interface ServiceSeed {
+  key: string;
+  en: string;
+  ptBR: string;
+  category: string;
+  price: number;
+  durationMinutes: number;
+  requiresVaccines: boolean;
+}
+
+export const SERVICE_SEEDS: ServiceSeed[] = [
+  { key: 'bath', en: 'Bath', ptBR: 'Banho', category: 'bath', price: 60, durationMinutes: 60, requiresVaccines: true },
+  { key: 'flea-bath', en: 'Flea and tick bath', ptBR: 'Banho antipulgas', category: 'bath', price: 80, durationMinutes: 75, requiresVaccines: true },
+  { key: 'bath-grooming', en: 'Bath and full grooming', ptBR: 'Banho e tosa completa', category: 'grooming', price: 110, durationMinutes: 120, requiresVaccines: true },
+  { key: 'hygienic-trim', en: 'Hygienic trim', ptBR: 'Tosa higiênica', category: 'grooming', price: 45, durationMinutes: 30, requiresVaccines: true },
+  { key: 'nail-trim', en: 'Nail trim', ptBR: 'Corte de unhas', category: 'hygiene', price: 25, durationMinutes: 15, requiresVaccines: false },
+  { key: 'ear-cleaning', en: 'Ear cleaning', ptBR: 'Limpeza de ouvidos', category: 'hygiene', price: 25, durationMinutes: 15, requiresVaccines: false },
+  { key: 'teeth-brushing', en: 'Teeth brushing', ptBR: 'Escovação de dentes', category: 'hygiene', price: 20, durationMinutes: 15, requiresVaccines: false },
+];
+
 /** Message keys of each option-list term, grouped so the plugin and the bundles derive them the same way. */
 export const TERM_GROUPS: { prefix: string; terms: Term[] }[] = [
   { prefix: 'species', terms: SPECIES },
@@ -139,6 +219,11 @@ export const TERM_GROUPS: { prefix: string; terms: Term[] }[] = [
   { prefix: 'sex', terms: SEXES },
   { prefix: 'laboratory', terms: LABORATORIES },
   { prefix: 'batch-status', terms: BATCH_STATUSES },
+  { prefix: 'vaccination-status', terms: VACCINATION_STATUSES },
+  { prefix: 'service-category', terms: SERVICE_CATEGORIES },
+  { prefix: 'appointment-status', terms: APPOINTMENT_STATUSES },
+  { prefix: 'package-status', terms: PACKAGE_STATUSES },
+  { prefix: 'service.seed', terms: SERVICE_SEEDS },
 ];
 
 export const termMessageKey = (prefix: string, key: string): string => `${prefix}.${key}`;

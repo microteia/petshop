@@ -11,7 +11,7 @@ import { matchesOptionsFilter, resolveOptionsFilter } from '../node_modules/@mic
 import MODEL from './domain-model.json';
 import { CAT_BREEDS, DOG_BREEDS, SEXES, SIZES, SPECIES, SPECIES_CAT, SPECIES_DOG } from './catalog';
 import { MESSAGES, NAMESPACE } from './messages';
-import { AGE_MONTHS, AGE_YEARS, BIRTH_DATE_RULE, BREED_BY_SPECIES, BREED_SEEDS, BREEDS, CUSTOMER_TAGS, CUSTOMERS, PET_TAGS, EMAIL_RULE, PET_CARD, PET_PHOTO_FILE, PETS, PETS_NAV, petshopPlugin } from './plugin';
+import { NO_OVERDUE_VACCINE, AGE_MONTHS, AGE_YEARS, BIRTH_DATE_RULE, BREED_BY_SPECIES, BREED_SEEDS, BREEDS, CUSTOMER_TAGS, CUSTOMERS, PET_TAGS, EMAIL_RULE, PET_CARD, PET_PHOTO_FILE, PETS, PETS_NAV, petshopPlugin } from './plugin';
 import type { CardNode } from '@microteia/sdk';
 import { fileConfigIsImageOnly } from '../node_modules/@microteia/sdk/lib/domain/schema/fieldRules.js';
 
@@ -280,5 +280,14 @@ describe('br.com.microteia.petshop', () => {
     expect(check(null)).toBeNull();
     expect(check('ana@example.com')).toBeNull();
     expect(check('not-an-email')).toBe(`@${NAMESPACE}/error.email`);
+  });
+  it('the overdue warning on the pet card shows only for a positive count', () => {
+    const hidden = (overdueVaccines: unknown) => evaluateFieldExpression(NO_OVERDUE_VACCINE, { value: null, data: { overdueVaccines } });
+    expect(hidden(0)).toBe(true);
+    expect(hidden(null)).toBe(true);
+    // A count that reaches the card as text: `coalesce(overdueVaccines, 0) == 0` read it as false, and the
+    // card said "0 overdue vaccine(s)".
+    expect(hidden('0')).toBe(true);
+    expect(hidden(2)).toBe(false);
   });
 });

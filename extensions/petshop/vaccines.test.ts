@@ -27,7 +27,14 @@ import {
   REMIND_DAYS_RULE,
   REMIND_ON,
   VACCINE_DUE_CATEGORY,
+  EARLIER_DOSES,
+  RENEW_EARLIER_DOSES,
+  VACCINATION_OVERDUE_ON_DATE,
+  VACCINATION_STATUS_FOR_TODAY,
+  VACCINATION_STATUS_ON_SAVE,
 } from './vaccines';
+import { VACCINATION_CURRENT, VACCINATION_OVERDUE, VACCINATION_RENEWED } from './catalog';
+import { OVERDUE_FILTER } from './plugin';
 
 const screen = (key: string) => (petshopPlugin.screens ?? []).find((one) => one.key === key)!;
 const field = (screenKey: string, key: string) => screen(screenKey).fields.find((one) => one.key === key)!;
@@ -261,6 +268,51 @@ describe('vaccines', () => {
 
     it('every flow has a description, so the platform can find it', () => {
       for (const workflow of petshopPlugin.workflows) expect(workflow.description).toMatch(/^@/);
+    });
+  });
+
+  describe('the status of a dose', () => {
+    const status = (nextDoseOn: string | null, renewedBy: string | null = null) =>
+      evaluateFieldExpression(VACCINATION_STATUS_FOR_TODAY, {
+        value: null,
+        data: { event: { nextDoseOn: nextDoseOn ? day(nextDoseOn) : null, renewedBy } },
+        at,
+        timeZone,
+      });
+
+    it('is current through the day of the next dose, and overdue from the day after', () => {
+      expect(status('2026-11-10')).toBe(VACCINATION_CURRENT);
+      expect(status('2026-11-09')).toBe(VACCINATION_OVERDUE);
+      expect(status(null)).toBe(VACCINATION_CURRENT);
+    });
+
+    it('a dose renewed by a later one is renewed, whatever its date', () => {
+      expect(status('2026-01-01', 'later-dose')).toBe(VACCINATION_RENEWED);
+    });
+
+    it('the clock and the save both write it, only when it is wrong', () => {
+      expect(VACCINATION_OVERDUE_ON_DATE).toMatchObject({ eventName: `${VACCINATIONS}.dateReached`, dateReached: { field: 'nextDoseOn', offset: '+1d' } });
+      for (const workflow of [VACCINATION_OVERDUE_ON_DATE, VACCINATION_STATUS_ON_SAVE]) {
+        expect(workflow.condition).toEqual({ kind: 'Expression', expression: `${VACCINATION_STATUS_FOR_TODAY} != event.status` });
+      }
+    });
+
+    it('a new dose renews the earlier doses of the same vaccine for the same pet, one by one', () => {
+      expect(RENEW_EARLIER_DOSES.condition).toEqual({ kind: 'Expression', expression: 'event.changeType == "created"' });
+      expect(EARLIER_DOSES.where.map((one) => [one.path, one.op])).toEqual([['pet', 'eq'], ['vaccine', 'eq'], ['appliedOn', 'lt'], ['status', 'neq']]);
+      const loop = RENEW_EARLIER_DOSES.steps.find((step) => step.type === 'Loop')!;
+      expect(loop.loop?.source).toEqual({ kind: 'Output', stepId: 'earlierDoses', outputId: 'results' });
+      expect(loop.loop?.body.map((step) => step.stepDefinitionId)).toEqual(['map', 'upsert']);
+    });
+
+    it("the pet counts its overdue doses, which the card and the Check in button read", () => {
+      expect(field(PETS, 'overdueVaccines').aggregation).toEqual({ from: VACCINATIONS, via: 'pet', op: 'count', filter: OVERDUE_FILTER });
+      expect(evaluateFieldExpression(OVERDUE_FILTER, { value: null, data: { status: VACCINATION_OVERDUE } })).toBe(true);
+      expect(evaluateFieldExpression(OVERDUE_FILTER, { value: null, data: { status: VACCINATION_RENEWED } })).toBe(false);
+    });
+
+    it('the reminder is not sent for a dose that was already renewed', () => {
+      expect(NEXT_DOSE_REMINDER.condition).toEqual({ kind: 'Expression', expression: `not isEmpty(event.nextDoseOn) and event.status != "${VACCINATION_RENEWED}"` });
     });
   });
 });
