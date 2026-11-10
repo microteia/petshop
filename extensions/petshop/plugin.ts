@@ -1,0 +1,349 @@
+import type {
+  AuthoredPlugin,
+  CardTemplate,
+  LookupModuleTemplate,
+  ScreenModuleTemplate,
+  ScreenSeedRecord,
+  TemplateField,
+} from '@microteia/sdk';
+import { messageBundleContribution, nav } from '@microteia/sdk';
+import { CAT_BREEDS, DOG_BREEDS, SEXES, SIZES, SPECIES, SPECIES_CAT, SPECIES_DOG, termMessageKey, type Term } from './catalog';
+import { MESSAGES, NAMESPACE } from './messages';
+
+/**
+ * br.com.microteia.petshop — customers and their pets.
+ *
+ * The model lives beside this file in domain-model.json; read it before changing a field. Two decisions
+ * there are worth knowing:
+ *
+ * - Breed is an ENTITY with a species, not an option list: the shop adds its own breeds of any species,
+ *   and the pet has ONE breed field whose picker offers only the breeds of the pet's species
+ *   (`optionsFilter`). The common dog and cat breeds arrive as seeded records.
+ * - Age is DERIVED from the birth date on every read, never stored: stored, it would be the age on the
+ *   day the record was saved, forever.
+ *
+ * The .json that "microteia-plugin build" produces from this file is what the platform installs.
+ */
+
+/** A message reference, resolved against the bundles in messages.ts. */
+const label = (key: string): string => `@${NAMESPACE}/${key}`;
+
+// ─── Collections ────────────────────────────────────────────────────────────
+
+export const CUSTOMERS = 'pet_petshopCustomers';
+export const PETS = 'pet_petshopPets';
+export const BREEDS = 'pet_petshopBreeds';
+export const SPECIES_LIST = 'pet_petshopSpecies';
+export const SIZE_LIST = 'pet_petshopPetSizes';
+export const CUSTOMER_TAGS = 'pet_petshopCustomerTags';
+export const PET_TAGS = 'pet_petshopPetTags';
+
+// ─── Expressions ────────────────────────────────────────────────────────────
+
+/** Whole months between the birth date and the organization's today. Empty without a birth date. */
+const MONTHS_OLD =
+  '((year(today()) - year(birthDate)) * 12 + month(today()) - month(birthDate) - if(day(today()) < day(birthDate), 1, 0))';
+
+export const AGE_YEARS = `if(isEmpty(birthDate), null, floor(${MONTHS_OLD} / 12))`;
+export const AGE_MONTHS = `if(isEmpty(birthDate), null, ${MONTHS_OLD} % 12)`;
+
+/**
+ * Compared in days through dateDiff, never with `<=`: a stored date reaches the expression as a Date
+ * and today() as "YYYY-MM-DD", and a plain comparison between the two is never true.
+ */
+export const BIRTH_DATE_RULE = `if(isEmpty(value) or dateDiff(value, today(), "days") <= 0, null, "${label('error.birth-date-future')}")`;
+export const EMAIL_RULE = `if(isEmpty(value) or isEmail(value), null, "${label('error.email')}")`;
+
+
+// ─── Option lists ───────────────────────────────────────────────────────────
+
+const options = (prefix: string, terms: Term[]) =>
+  terms.map((term) => ({ key: term.key, label: label(termMessageKey(prefix, term.key)) }));
+
+/**
+ * `seed: 'required'`: a fresh install gets every option, and a later version that adds one brings it to
+ * organizations that already have the list — without bringing back one the organization removed.
+ */
+const LOOKUPS: LookupModuleTemplate[] = [
+  { collection: SPECIES_LIST, label: label('lookup.species'), seed: 'required', options: options('species', SPECIES) },
+  { collection: SIZE_LIST, label: label('lookup.sizes'), seed: 'required', options: options('size', SIZES) },
+];
+
+/**
+ * Two tag sets, not one: a customer is tagged "VIP" or "late payer", a pet "allergic" or "aggressive".
+ * One shared list would offer each screen the other's words. The tags are the organization's — none seeded.
+ */
+const TAG_LISTS: LookupModuleTemplate[] = [
+  { collection: CUSTOMER_TAGS, label: label('tags.customers') },
+  { collection: PET_TAGS, label: label('tags.pets') },
+];
+
+// ─── Customer ───────────────────────────────────────────────────────────────
+
+const CUSTOMER_FIELDS: TemplateField[] = [
+  { key: 'name', label: label('customer.field.name'), type: 'text', required: true, order: 0, searchable: true },
+  {
+    key: 'phone',
+    label: label('customer.field.phone'),
+    type: 'text',
+    required: false,
+    order: 1,
+    contact: 'phone',
+    searchable: true,
+    showInList: true,
+    listIcon: 'phone',
+  },
+  {
+    key: 'email',
+    label: label('customer.field.email'),
+    type: 'text',
+    required: false,
+    order: 2,
+    contact: 'email',
+    searchable: true,
+    logic: { validate: EMAIL_RULE },
+  },
+  { key: 'notes', label: label('customer.field.notes'), type: 'textarea', required: false, order: 3 },
+  {
+    key: 'petCount',
+    label: label('customer.field.pet-count'),
+    type: 'number',
+    required: false,
+    order: 4,
+    // Kept and still counted, but not shown: the customer's Pets tab already lists them.
+    hiddenInForm: true,
+    aggregation: { from: PETS, via: 'customer', op: 'count' },
+  },
+];
+
+const CUSTOMER_SCREEN: ScreenModuleTemplate = {
+  key: CUSTOMERS,
+  sourceId: 'br.com.microteia.petshop:pet_petshopCustomers',
+  titleSingular: label('customer.singular'),
+  titlePlural: label('customer.plural'),
+  icon: 'userHeart',
+  titleFieldKey: 'name',
+  subtitleFieldKey: 'phone',
+  sidebarOrder: 20,
+  fields: CUSTOMER_FIELDS,
+  // The reasons are in domain-model.json (entity.tabs): a dated log, the customer's files, and labels.
+  hasNotes: true,
+  hasDocuments: true,
+  hasTags: true,
+  tagCollection: CUSTOMER_TAGS,
+};
+
+// ─── Breed ──────────────────────────────────────────────────────────────────
+
+const BREED_FIELDS: TemplateField[] = [
+  { key: 'name', label: label('breed.field.name'), type: 'text', required: true, order: 0, searchable: true },
+  {
+    key: 'species',
+    label: label('breed.field.species'),
+    type: 'select',
+    lookupCollection: SPECIES_LIST,
+    // A species the list does not have yet is typed and added right there, from either form.
+    optionsAllowUserAdd: true,
+    required: true,
+    order: 1,
+    filterable: true,
+    showInList: true,
+  },
+];
+
+/** The seed key is `<species>.<breed>`: "mixed" is a dog breed and a cat breed, and they are two records. */
+const breedSeeds = (species: string, terms: Term[]): ScreenSeedRecord[] =>
+  terms.map((term) => ({ key: `${species}.${term.key}`, data: { name: term.en, species } }));
+
+export const BREED_SEEDS: ScreenSeedRecord[] = [...breedSeeds(SPECIES_DOG, DOG_BREEDS), ...breedSeeds(SPECIES_CAT, CAT_BREEDS)];
+
+const BREED_SCREEN: ScreenModuleTemplate = {
+  key: BREEDS,
+  sourceId: 'br.com.microteia.petshop:pet_petshopBreeds',
+  titleSingular: label('breed.singular'),
+  titlePlural: label('breed.plural'),
+  icon: 'bookmark',
+  titleFieldKey: 'name',
+  subtitleFieldKey: 'species',
+  sidebarOrder: 30,
+  fields: BREED_FIELDS,
+  // One "Labrador Retriever" per species, whatever the capitalisation.
+  keys: [
+    {
+      name: 'species-name',
+      kind: 'unique',
+      fields: ['species', 'name'],
+      normalize: { caseInsensitive: true },
+      message: label('breed.key.species-name'),
+    },
+  ],
+  /**
+   * `required`: a fresh install gets every breed, and a later version that adds one delivers only the new
+   * key to organizations that already have the extension. A breed the organization renamed or deleted is
+   * never brought back.
+   */
+  seed: { mode: 'required', records: BREED_SEEDS },
+};
+
+// ─── Pet ────────────────────────────────────────────────────────────────────
+
+/** On a reference, `path` is a field of the Breed screen and `value.field` a field of this form. */
+export const BREED_BY_SPECIES = { where: [{ path: 'species', op: 'eq' as const, value: { field: 'species' } }] };
+
+const IDENTIFICATION = label('pet.section.identification');
+const AGE = label('pet.section.age');
+const NOTES = label('pet.section.notes');
+
+const PET_FIELDS: TemplateField[] = [
+  { key: 'name', label: label('pet.field.name'), type: 'text', required: true, order: 0, section: IDENTIFICATION, searchable: true },
+  {
+    key: 'customer',
+    label: label('pet.field.customer'),
+    type: 'reference',
+    refEntity: CUSTOMERS,
+    required: true,
+    order: 1,
+    section: IDENTIFICATION,
+    searchable: true,
+    filterable: true,
+    showInList: true,
+  },
+  {
+    key: 'species',
+    label: label('pet.field.species'),
+    type: 'select',
+    lookupCollection: SPECIES_LIST,
+    // A species the list does not have yet is typed and added right there, from either form.
+    optionsAllowUserAdd: true,
+    required: true,
+    order: 2,
+    section: IDENTIFICATION,
+    filterable: true,
+    showInList: true,
+  },
+  {
+    key: 'breed',
+    label: label('pet.field.breed'),
+    type: 'reference',
+    refEntity: BREEDS,
+    required: false,
+    order: 3,
+    section: IDENTIFICATION,
+    filterable: true,
+    showInList: true,
+    // Only the breeds of the pet's species; changing the species clears a breed it no longer offers.
+    optionsFilter: BREED_BY_SPECIES,
+  },
+  {
+    key: 'sex',
+    label: label('pet.field.sex'),
+    type: 'select',
+    options: options('sex', SEXES),
+    required: false,
+    order: 4,
+    section: IDENTIFICATION,
+    filterable: true,
+  },
+  {
+    key: 'size',
+    label: label('pet.field.size'),
+    type: 'select',
+    lookupCollection: SIZE_LIST,
+    required: false,
+    order: 5,
+    section: IDENTIFICATION,
+    filterable: true,
+    showInList: true,
+  },
+  {
+    key: 'birthDate',
+    label: label('pet.field.birth-date'),
+    type: 'date',
+    required: false,
+    order: 6,
+    section: AGE,
+    logic: { validate: BIRTH_DATE_RULE },
+  },
+  { key: 'ageYears', label: label('pet.field.age-years'), type: 'number', required: false, order: 7, section: AGE, logic: { derive: AGE_YEARS } },
+  { key: 'ageMonths', label: label('pet.field.age-months'), type: 'number', required: false, order: 8, section: AGE, logic: { derive: AGE_MONTHS } },
+  { key: 'notes', label: label('pet.field.notes'), type: 'textarea', required: false, order: 9, section: NOTES },
+];
+
+/** The pet card: who it is, its breed, and its size and sex as badges. The values read clearly without labels. */
+export const PET_CARD: CardTemplate = {
+  body: [
+    {
+      type: 'row',
+      children: [
+        { type: 'avatar', size: 'sm' },
+        { type: 'stack', gap: 'xs', children: [{ type: 'title' }, { type: 'subtitle' }] },
+      ],
+    },
+    { type: 'field', field: 'breed', variant: 'strong' },
+    {
+      type: 'row',
+      wrap: true,
+      children: [
+        { type: 'field', field: 'size', variant: 'badge' },
+        { type: 'field', field: 'sex', variant: 'badge' },
+      ],
+    },
+    { type: 'actions', placement: 'hover' },
+  ],
+};
+
+const PET_SCREEN: ScreenModuleTemplate = {
+  key: PETS,
+  sourceId: 'br.com.microteia.petshop:pet_petshopPets',
+  titleSingular: label('pet.singular'),
+  titlePlural: label('pet.plural'),
+  icon: 'heart',
+  titleFieldKey: 'name',
+  subtitleFieldKey: 'species',
+  fields: PET_FIELDS,
+  cardTemplate: PET_CARD,
+  // The reasons are in domain-model.json (entity.tabs): visit observations, vaccination cards, labels.
+  hasNotes: true,
+  hasDocuments: true,
+  hasTags: true,
+  tagCollection: PET_TAGS,
+  // A pet is a tab of its customer, and `related`, not `owned`: the platform keeps an owned child out of
+  // the command palette (⌘K) and gives no setting to bring it back, and pets must be found by name there.
+  // The owner field is required, so the card still offers Delete, never Unlink. The sidebar entry is the
+  // explicit nav() in the manifest, so it does not depend on the relation.
+  parentEntity: CUSTOMERS,
+  parentFieldKey: 'customer',
+  parentRelation: 'related',
+  hideFromSidebar: true,
+};
+
+/** The Pets list in the menu. `screen`, never `key`: a screen's key is not a tab key. */
+export const PETS_NAV = nav({ screen: PETS, label: label('pet.plural'), icon: 'heart', order: 25 });
+
+// ─── Package ────────────────────────────────────────────────────────────────
+
+export const petshopPlugin: AuthoredPlugin = {
+  manifest: {
+    id: NAMESPACE,
+    version: '3.2.0',
+    kernel: '^2.106.0',
+    name: label('extension.name'),
+    description: label('extension.description'),
+    publisher: { name: 'Microteia' },
+    icon: 'userHeart',
+    // The start of every name this extension creates. The gate checks it, and it never changes.
+    prefix: 'pet',
+    contributes: [
+      ...MESSAGES.map((bundle) => messageBundleContribution(bundle)),
+      // Every pet of every customer, between Customers (20) and Breeds (30).
+      PETS_NAV,
+    ],
+  },
+  summary: label('extension.summary'),
+  screens: [CUSTOMER_SCREEN, PET_SCREEN, BREED_SCREEN],
+  lookups: LOOKUPS,
+  tagLists: TAG_LISTS,
+  workflows: [],
+};
+
+export default petshopPlugin;

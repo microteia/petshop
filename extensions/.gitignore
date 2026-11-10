@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!.mcp.json
+!business-rules-input.json
+!business-rules.json
+!domain-model.json
+installed-catalog.json

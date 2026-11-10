@@ -1,0 +1,53 @@
+# Microteia installation.
+#
+# Created by "microteia init" and completed by "microteia connect" and "microteia deploy".
+# It describes ONE installation bound to ONE Firebase project. It holds no credentials and is safe
+# to keep next to your own Cloud Functions — but it is specific to this installation, so it does not
+# belong in a shared repository.
+
+project:
+  name: demo
+
+environment:
+  id: demo
+  name: demo
+
+firebase:
+  projectId: microteia-dev
+  # The region the kernel is compiled for. Cloud Functions are pinned to it, and Firestore must be
+  # in the same region or its triggers will never fire. Changing it here does not move anything.
+  region: southamerica-east1
+
+kernel:
+  # The version in place in this installation, written by "microteia unpack".
+  version: 9.222.0
+  # The version already published to the Firebase project, written by "microteia deploy". It trails
+  # the one above between taking a package and publishing it, which is what those two commands are
+  # separate for.
+  deployed: 9.222.0
+
+backend:
+  # Cloud Functions deployed because an installed extension asked for them. Managed by
+  # "microteia provision" — editing it by hand only makes the next run deploy or keep the wrong set.
+  functions: null
+  # A fingerprint of each backend setting already applied from .env.<projectId> (next to this file).
+  # It is how "microteia provision" notices a setting filled in after the deploy and redeploys the
+  # functions that carry it. It holds no value, only a salted digest of each one — editing it by hand only makes
+  # the next run redeploy, or skip, the wrong set.
+  parameters: null
+  # Composite indexes declared because an installed extension asked for them. It has to live here,
+  # and not only in the unpacked package, because "microteia unpack" replaces that whole directory
+  # and the package carries only the kernel's own indexes. Without it, a kernel upgrade made
+  # "firebase deploy" offer to delete the indexes of every extension. Managed by
+  # "microteia provision".
+  indexes: null
+
+login:
+  # Compiled extension packages (.json) to load BEFORE anyone signs in — this is how a corporate SSO
+  # reaches the sign-in screen, since there is no organization to read it from yet. Comma-separated
+  # paths, relative to this file. "microteia deploy" stamps them into microteia-extensions.js and
+  # refuses a package that contributes to none of the points that work before sign-in.
+  #
+  # Nothing stamped here runs JavaScript: the packages load as untrusted, so only declarations apply.
+  # To USE an extension inside the organization, install it from the Extensions screen instead.
+  extensions: null

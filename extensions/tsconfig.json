@@ -1,0 +1,58 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "types": [
+      "node"
+    ],
+    "strict": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "moduleDetection": "force",
+    "paths": {
+      "@microteia/sdk": [
+        "./node_modules/@microteia/sdk/lib/sdk/index.d.ts"
+      ],
+      "@microteia/sdk/node": [
+        "./node_modules/@microteia/sdk/lib/sdk/node/compile.d.ts"
+      ],
+      "microteia-functions/office": [
+        "./node_modules/@microteia/sdk/types/microteia-office.d.ts"
+      ],
+      "@microteia/*": [
+        "./node_modules/@microteia/sdk/types/microteia-host.d.ts"
+      ],
+      "react": [
+        "./node_modules/@microteia/sdk/types/microteia-host.d.ts"
+      ],
+      "react/jsx-runtime": [
+        "./node_modules/@microteia/sdk/types/microteia-host.d.ts"
+      ],
+      "styled-components": [
+        "./node_modules/@microteia/sdk/types/microteia-host.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "node_modules/@microteia/sdk/types/microteia-raw.d.ts",
+    "node_modules/@microteia/sdk/types/microteia-sandbox.d.ts"
+  ],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

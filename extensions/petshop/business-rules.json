@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "ruleId": "petshop-customers-and-pets",
+      "statement": "Create a Pet Shop Management System to manage customers and their pets. Each customer may have multiple pets, with information such as name, species, breed, sex, age, size, and relevant notes. The system should provide a preloaded catalog of the most common dog and cat breeds, while also allowing users to add new breeds. The breed must be a separate entity with a type (dog, cat etc.), and in the pet, we have only one field breed filtered by breed type.",
+      "fingerprint": "87af6ece",
+      "screens": [
+        "pet_petshopBreeds",
+        "pet_petshopCustomers",
+        "pet_petshopPets"
+      ],
+      "lists": [
+        "pet_petshopPetSizes",
+        "pet_petshopSpecies"
+      ],
+      "actions": [],
+      "transitions": [],
+      "permissions": [],
+      "screenSourceIds": {
+        "pet_petshopBreeds": "br.com.microteia.petshop:pet_petshopBreeds",
+        "pet_petshopCustomers": "br.com.microteia.petshop:pet_petshopCustomers",
+        "pet_petshopPets": "br.com.microteia.petshop:pet_petshopPets"
+      }
+    }
+  ]
+}

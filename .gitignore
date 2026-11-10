@@ -1,0 +1,7 @@
+# Local Microteia installation: rebuilt from the package plus "microteia connect".
+.microteia/
+
+# Backend settings. These are credentials — never commit them.
+.env.*
+# Ignore examples, which are not part of the installation and are not meant to be committed.
+examples/

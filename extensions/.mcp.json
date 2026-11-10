@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "microteia": {
+      "command": "node",
+      "args": [
+        "node_modules/@microteia/sdk/lib/sdk/node/cli.js",
+        "mcp"
+      ]
+    }
+  }
+}

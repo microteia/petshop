@@ -1,0 +1,292 @@
+{
+  "version": 1,
+  "intent": "Create a Pet Shop Management System to manage customers and their pets. Each customer may have multiple pets, with information such as name, species, breed, sex, age, size, and relevant notes. The system should provide a preloaded catalog of the most common dog and cat breeds, while also allowing users to add new breeds. The breed is a separate entity with a type (the species: dog, cat, etc.); a pet has a single breed field, filtered by its species.",
+  "target": "extension",
+  "extensionId": "br.com.microteia.petshop",
+  "entities": [
+    {
+      "name": "Customer",
+      "kind": "entity",
+      "collection": "pet_petshopCustomers",
+      "description": "A pet owner who brings pets to the shop.",
+      "titleField": "name",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Name",
+          "semanticType": "scalar",
+          "type": "text",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "key": "phone",
+          "label": "Phone",
+          "semanticType": "scalar",
+          "type": "text",
+          "searchable": true,
+          "showInList": true
+        },
+        {
+          "key": "email",
+          "label": "E-mail",
+          "semanticType": "scalar",
+          "type": "text",
+          "searchable": true
+        },
+        {
+          "key": "notes",
+          "label": "Notes",
+          "semanticType": "scalar",
+          "type": "textarea"
+        },
+        {
+          "key": "petCount",
+          "label": "Pets",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "children",
+          "aggregation": {
+            "from": "Pet",
+            "via": "customer",
+            "op": "count"
+          },
+          "showInList": true
+        }
+      ],
+      "tabs": [
+        {
+          "kind": "notes",
+          "because": "The shop keeps a dated running log about each customer (calls, complaints, agreements), separate from the one free-text Notes field."
+        },
+        {
+          "kind": "documents",
+          "because": "Customers hand over files the shop must keep with their record: signed consent forms, ID copies, invoices."
+        },
+        {
+          "kind": "tags",
+          "because": "The shop labels customers in its own vocabulary (VIP, late payer, prefers WhatsApp) to filter and find them."
+        }
+      ]
+    },
+    {
+      "name": "Pet",
+      "kind": "child",
+      "collection": "pet_petshopPets",
+      "description": "An animal owned by a customer. Its breed is one reference to Breed, and the form offers only the breeds of the pet's species.",
+      "titleField": "name",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Name",
+          "semanticType": "scalar",
+          "type": "text",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "key": "customer",
+          "label": "Owner",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Customer",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "key": "species",
+          "label": "Species",
+          "semanticType": "scalar",
+          "type": "select",
+          "lookup": "pet_petshopSpecies",
+          "required": true,
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "breed",
+          "label": "Breed",
+          "semanticType": "reference",
+          "type": "reference",
+          "target": "Breed",
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "sex",
+          "label": "Sex",
+          "semanticType": "scalar",
+          "type": "select",
+          "filterable": true
+        },
+        {
+          "key": "birthDate",
+          "label": "Birth date (estimated)",
+          "semanticType": "scalar",
+          "type": "date"
+        },
+        {
+          "key": "ageYears",
+          "label": "Age (years)",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "self",
+          "expression": "if(isEmpty(birthDate), null, floor(((year(today()) - year(birthDate)) * 12 + month(today()) - month(birthDate) - if(day(today()) < day(birthDate), 1, 0)) / 12))"
+        },
+        {
+          "key": "ageMonths",
+          "label": "Age (months)",
+          "semanticType": "derived",
+          "type": "number",
+          "derivedFrom": "self",
+          "expression": "if(isEmpty(birthDate), null, ((year(today()) - year(birthDate)) * 12 + month(today()) - month(birthDate) - if(day(today()) < day(birthDate), 1, 0)) % 12)"
+        },
+        {
+          "key": "size",
+          "label": "Size",
+          "semanticType": "scalar",
+          "type": "select",
+          "lookup": "pet_petshopPetSizes",
+          "filterable": true,
+          "showInList": true
+        },
+        {
+          "key": "notes",
+          "label": "Notes",
+          "semanticType": "scalar",
+          "type": "textarea"
+        }
+      ],
+      "tabs": [
+        {
+          "kind": "notes",
+          "because": "Each visit adds an observation about the animal (behaviour, grooming, health), and a dated log keeps them apart instead of overwriting one text."
+        },
+        {
+          "kind": "documents",
+          "because": "A pet carries files of its own: vaccination cards, vet reports, photos."
+        },
+        {
+          "kind": "tags",
+          "because": "The shop labels pets in its own vocabulary (aggressive, allergic, senior) so staff spot them at a glance and filter by them."
+        }
+      ]
+    },
+    {
+      "name": "Breed",
+      "kind": "entity",
+      "collection": "pet_petshopBreeds",
+      "description": "A breed of one species. The shop starts with the most common dog and cat breeds and adds its own.",
+      "titleField": "name",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Name",
+          "semanticType": "scalar",
+          "type": "text",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "key": "species",
+          "label": "Species",
+          "semanticType": "scalar",
+          "type": "select",
+          "lookup": "pet_petshopSpecies",
+          "required": true,
+          "filterable": true,
+          "showInList": true
+        }
+      ],
+      "keys": [
+        {
+          "name": "species-name",
+          "kind": "unique",
+          "fields": [
+            "species",
+            "name"
+          ],
+          "normalize": {
+            "caseInsensitive": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Species",
+      "kind": "lookup",
+      "collection": "pet_petshopSpecies",
+      "fields": []
+    },
+    {
+      "name": "PetSize",
+      "kind": "lookup",
+      "collection": "pet_petshopPetSizes",
+      "fields": []
+    }
+  ],
+  "relationships": [
+    {
+      "name": "customer-pets",
+      "sourceEntity": "Pet",
+      "targetEntity": "Customer",
+      "sourceField": "customer",
+      "type": "many-to-one",
+      "storage": "child",
+      "ownership": "association",
+      "required": true,
+      "onDelete": "orphan"
+    },
+    {
+      "sourceEntity": "Pet",
+      "targetEntity": "Species",
+      "sourceField": "species",
+      "type": "many-to-one",
+      "storage": "lookup",
+      "ownership": "association",
+      "required": true
+    },
+    {
+      "sourceEntity": "Pet",
+      "targetEntity": "Breed",
+      "sourceField": "breed",
+      "type": "many-to-one",
+      "storage": "reference",
+      "ownership": "association"
+    },
+    {
+      "sourceEntity": "Pet",
+      "targetEntity": "PetSize",
+      "sourceField": "size",
+      "type": "many-to-one",
+      "storage": "lookup",
+      "ownership": "association"
+    },
+    {
+      "sourceEntity": "Breed",
+      "targetEntity": "Species",
+      "sourceField": "species",
+      "type": "many-to-one",
+      "storage": "lookup",
+      "ownership": "association",
+      "required": true
+    }
+  ],
+  "behavior": {
+    "invariants": [
+      {
+        "scope": "field",
+        "entity": "Pet",
+        "field": "birthDate",
+        "expression": "isEmpty(birthDate) or dateDiff(birthDate, today(), \"days\") <= 0",
+        "message": "The birth date cannot be in the future."
+      },
+      {
+        "scope": "collection",
+        "entity": "Breed",
+        "key": "species-name",
+        "message": "This species already has a breed with this name."
+      }
+    ]
+  }
+}
